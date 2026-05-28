@@ -7,7 +7,11 @@ Rails.application.routes.draw do
 
       post "skills/:skill_id/execute", to: "executions#create", as: :execute_skill
 
-      resources :executions, only: %i[index]
+      resources :executions, only: %i[index] do
+        member do
+          patch :fail
+        end
+      end
       resources :ledger, only: %i[index], controller: "ledger_entries"
     end
   end

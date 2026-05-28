@@ -112,4 +112,61 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal 2, response.parsed_body.length
   end
+
+  # ── Fail (Slash + Refund) ─────────────────────────────────────
+
+  test "fail slashes stake and refunds buyer" do
+    assert_difference("LedgerEntry.count", 2) do
+      assert_difference -> { @alice.reload.balance }, -(@data_analysis.stake_amount + @data_analysis.price_per_call) do
+        assert_difference -> { @bob.reload.balance }, @data_analysis.stake_amount + @data_analysis.price_per_call do
+          patch fail_api_v1_execution_url(@execution)
+        end
+      end
+    end
+    assert_response :ok
+
+    @execution.reload
+    assert_equal "failed", @execution.status
+
+    slash_entry = LedgerEntry.find_by(entry_type: "slash")
+    assert_not_nil slash_entry
+    assert_equal @alice.id, slash_entry.from_account_id
+    assert_equal @bob.id, slash_entry.to_account_id
+    assert_equal @data_analysis.stake_amount.to_s, slash_entry.amount.to_s
+
+    refund_entry = LedgerEntry.find_by(entry_type: "refund")
+    assert_not_nil refund_entry
+    assert_equal @alice.id, refund_entry.from_account_id
+    assert_equal @bob.id, refund_entry.to_account_id
+    assert_equal @data_analysis.price_per_call.to_s, refund_entry.amount.to_s
+  end
+
+  test "fail returns error when execution already failed" do
+    patch fail_api_v1_execution_url(@execution)
+    assert_response :ok
+
+    assert_no_difference("LedgerEntry.count") do
+      patch fail_api_v1_execution_url(@execution)
+    end
+    assert_response :unprocessable_entity
+    assert_includes response.parsed_body["error"], "already failed"
+  end
+
+  test "fail returns 404 for missing execution" do
+    assert_no_difference(["LedgerEntry.count", "Execution.where(status: 'failed').count"]) do
+      patch fail_api_v1_execution_url(id: 99999)
+    end
+    assert_response :not_found
+    assert_includes response.parsed_body["error"], "not found"
+  end
+
+  test "fail returns error when author has insufficient balance" do
+    @alice.update!(balance: 0)
+
+    assert_no_difference(["LedgerEntry.count", "Execution.where(status: 'failed').count"]) do
+      patch fail_api_v1_execution_url(@execution)
+    end
+    assert_response :unprocessable_entity
+    assert_includes response.parsed_body["error"], "Insufficient balance"
+  end
 end

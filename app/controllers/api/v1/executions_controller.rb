@@ -38,6 +38,46 @@ module Api
       rescue LedgerTransactionService::InsufficientBalanceError
         render json: { error: "Buyer has insufficient balance" }, status: :unprocessable_entity
       end
+
+      def fail
+        execution = Execution.find(params[:id])
+        return render json: { error: "Execution is already failed" }, status: :unprocessable_entity if execution.status == "failed"
+
+        skill = execution.skill
+        author = skill.author
+        buyer = execution.buyer
+
+        Account.transaction do
+          author.update!(balance: author.balance - skill.stake_amount)
+          buyer.update!(balance: buyer.balance + skill.price_per_call)
+          buyer.update!(balance: buyer.balance + skill.stake_amount)
+          author.update!(balance: author.balance - skill.price_per_call)
+
+          LedgerEntry.create!(
+            from_account: author,
+            to_account: buyer,
+            amount: skill.stake_amount,
+            entry_type: "slash",
+            timestamp: Time.current
+          )
+
+          LedgerEntry.create!(
+            from_account: author,
+            to_account: buyer,
+            amount: skill.price_per_call,
+            entry_type: "refund",
+            timestamp: Time.current
+          )
+
+          execution.update!(status: "failed")
+        end
+
+        render json: execution, status: :ok
+      rescue ActiveRecord::RecordNotFound
+        render json: { error: "Execution not found" }, status: :not_found
+      rescue ActiveRecord::RecordInvalid
+        render json: { error: "Insufficient balance to process failure" }, status: :unprocessable_entity
+      end
     end
   end
 end
