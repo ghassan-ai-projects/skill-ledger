@@ -1,0 +1,13 @@
+transfer_one:
+  from_account: alice
+  to_account: bob
+  amount: 100.00
+  entry_type: transfer
+  timestamp: <%= Time.current %>
+
+transfer_two:
+  from_account: bob
+  to_account: charlie
+  amount: 50.00
+  entry_type: transfer
+  timestamp: <%= Time.current %>

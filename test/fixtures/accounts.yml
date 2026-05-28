@@ -1,0 +1,11 @@
+alice:
+  name: Alice
+  balance: 1000.00
+
+bob:
+  name: Bob
+  balance: 500.00
+
+charlie:
+  name: Charlie
+  balance: 250.00

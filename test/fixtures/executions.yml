@@ -1,0 +1,6 @@
+execution_one:
+  skill: data_analysis
+  buyer: bob
+  status: completed
+  result: Analysis complete
+  timestamp: <%= Time.current %>

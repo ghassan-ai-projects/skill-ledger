@@ -1,0 +1,13 @@
+data_analysis:
+  name: Data Analysis
+  description: Analyze datasets and generate reports
+  author: alice
+  stake_amount: 100.00
+  price_per_call: 50.00
+
+code_review:
+  name: Code Review
+  description: Review code for bugs and best practices
+  author: bob
+  stake_amount: 50.00
+  price_per_call: 25.00
