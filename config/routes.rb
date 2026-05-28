@@ -12,7 +12,10 @@ Rails.application.routes.draw do
           patch :fail
         end
       end
+
       resources :ledger, only: %i[index], controller: "ledger_entries"
+
+      get "reports", to: "reports#index"
     end
   end
 end
