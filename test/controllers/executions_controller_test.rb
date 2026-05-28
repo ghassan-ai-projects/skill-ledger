@@ -1,0 +1,115 @@
+require "test_helper"
+
+class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
+  setup do
+    @alice = accounts(:alice)
+    @bob = accounts(:bob)
+    @charlie = accounts(:charlie)
+    @data_analysis = skills(:data_analysis)
+    @code_review = skills(:code_review)
+    @execution = executions(:execution_one)
+  end
+
+  # ── Execute (create) ───────────────────────────────────────────
+
+  test "POST /api/v1/skills/:id/execute executes a skill successfully" do
+    assert_difference("Execution.count", 1) do
+      assert_difference -> { @charlie.reload.balance }, -@data_analysis.price_per_call do
+        assert_difference -> { @alice.reload.balance }, @data_analysis.price_per_call do
+          post api_v1_execute_skill_url(@data_analysis), params: { buyer_id: @charlie.id }, as: :json
+        end
+      end
+    end
+    assert_response :created
+
+    body = response.parsed_body
+    assert_equal "completed", body["status"]
+    assert_equal @data_analysis.id, body["skill_id"]
+    assert_equal @charlie.id, body["buyer_id"]
+  end
+
+  test "POST /api/v1/skills/:id/execute creates a ledger entry" do
+    assert_difference("LedgerEntry.count", 1) do
+      post api_v1_execute_skill_url(@data_analysis), params: { buyer_id: @charlie.id }, as: :json
+    end
+    assert_response :created
+
+    entry = LedgerEntry.last
+    assert_equal @charlie.id, entry.from_account_id
+    assert_equal @alice.id, entry.to_account_id
+    assert_equal @data_analysis.price_per_call.to_s, entry.amount.to_s
+    assert_equal "skill_execution", entry.entry_type
+  end
+
+  test "POST /api/v1/skills/:id/execute returns error when buyer not found" do
+    assert_no_difference(["Execution.count", "LedgerEntry.count"]) do
+      post api_v1_execute_skill_url(@data_analysis), params: { buyer_id: 99999 }, as: :json
+    end
+    assert_response :unprocessable_entity
+    assert_includes response.parsed_body["error"], "Buyer not found"
+  end
+
+  test "POST /api/v1/skills/:id/execute returns error when buyer has insufficient balance" do
+    expensive_skill = Skill.create!(
+      name: "Expensive Skill",
+      author: @alice,
+      price_per_call: 999.00,
+      stake_amount: 10.00
+    )
+
+    assert_no_difference(["Execution.count", "LedgerEntry.count"]) do
+      post api_v1_execute_skill_url(expensive_skill), params: { buyer_id: @charlie.id }, as: :json
+    end
+    assert_response :unprocessable_entity
+    assert_includes response.parsed_body["error"], "insufficient balance"
+  end
+
+  test "POST /api/v1/skills/:id/execute returns error when buyer is the author" do
+    assert_no_difference(["Execution.count", "LedgerEntry.count"]) do
+      post api_v1_execute_skill_url(@data_analysis), params: { buyer_id: @alice.id }, as: :json
+    end
+    assert_response :unprocessable_entity
+    assert_includes response.parsed_body["error"], "Cannot execute your own skill"
+  end
+
+  test "POST /api/v1/skills/:id/execute returns 404 for missing skill" do
+    assert_no_difference(["Execution.count", "LedgerEntry.count"]) do
+      post api_v1_execute_skill_url(skill_id: 99999), params: { buyer_id: @charlie.id }, as: :json
+    end
+    assert_response :not_found
+  end
+
+  # ── Index ──────────────────────────────────────────────────────
+
+  test "GET /api/v1/executions returns all executions" do
+    get api_v1_executions_url
+    assert_response :success
+
+    body = response.parsed_body
+    assert_equal 1, body.length
+    assert_equal "completed", body[0]["status"]
+  end
+
+  test "GET /api/v1/executions includes skill and buyer info" do
+    get api_v1_executions_url
+    assert_response :success
+
+    exec = response.parsed_body.first
+    assert_not_nil exec["skill"]
+    assert_equal @data_analysis.id, exec["skill"]["id"]
+    assert_equal "Data Analysis", exec["skill"]["name"]
+
+    assert_not_nil exec["buyer"]
+    assert_equal @bob.id, exec["buyer"]["id"]
+    assert_equal "Bob", exec["buyer"]["name"]
+  end
+
+  test "GET /api/v1/executions includes execution after buying a skill" do
+    post api_v1_execute_skill_url(@data_analysis), params: { buyer_id: @charlie.id }, as: :json
+    assert_response :created
+
+    get api_v1_executions_url
+    assert_response :success
+    assert_equal 2, response.parsed_body.length
+  end
+end

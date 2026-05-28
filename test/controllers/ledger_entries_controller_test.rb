@@ -1,0 +1,56 @@
+require "test_helper"
+
+class Api::V1::LedgerEntriesControllerTest < ActionDispatch::IntegrationTest
+  setup do
+    @alice = accounts(:alice)
+    @bob = accounts(:bob)
+    @charlie = accounts(:charlie)
+    @data_analysis = skills(:data_analysis)
+  end
+
+  test "GET /api/v1/ledger returns all ledger entries" do
+    get api_v1_ledger_index_url
+    assert_response :success
+
+    body = response.parsed_body
+    assert_equal 2, body.length
+  end
+
+  test "GET /api/v1/ledger includes from_account and to_account names" do
+    get api_v1_ledger_index_url
+    assert_response :success
+
+    entry = response.parsed_body.find { |e| e["entry_type"] == "transfer" }
+    assert_not_nil entry
+
+    assert_not_nil entry["from_account"]
+    assert_not_nil entry["to_account"]
+    assert_equal @alice.name, entry["from_account"]["name"]
+    assert_equal @bob.name, entry["to_account"]["name"]
+  end
+
+  test "GET /api/v1/ledger includes ledger entry created by skill execution" do
+    post api_v1_execute_skill_url(@data_analysis), params: { buyer_id: @charlie.id }, as: :json
+    assert_response :created
+
+    get api_v1_ledger_index_url
+    assert_response :success
+    assert_equal 3, response.parsed_body.length
+
+    new_entry = response.parsed_body.find { |e| e["entry_type"] == "skill_execution" }
+    assert_not_nil new_entry
+    assert_equal @charlie.id, new_entry["from_account"]["id"]
+    assert_equal @alice.id, new_entry["to_account"]["id"]
+  end
+
+  test "GET /api/v1/ledger shows correct amounts" do
+    get api_v1_ledger_index_url
+    assert_response :success
+
+    alice_to_bob = response.parsed_body.find do |e|
+      e["from_account"]["name"] == "Alice" && e["to_account"]["name"] == "Bob"
+    end
+    assert_not_nil alice_to_bob
+    assert_equal "100.0", alice_to_bob["amount"]
+  end
+end
