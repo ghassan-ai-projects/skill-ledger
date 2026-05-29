@@ -61,7 +61,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
       post api_v1_execute_skill_url(expensive_skill), params: { buyer_id: @charlie.id }, as: :json
     end
     assert_response :unprocessable_entity
-    assert_includes response.parsed_body["error"], "insufficient balance"
+    assert_includes response.parsed_body["error"], "Buyer has insufficient balance"
   end
 
   test "POST /api/v1/skills/:id/execute returns error when buyer is the author" do
@@ -77,6 +77,8 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
       post api_v1_execute_skill_url(skill_id: 99999), params: { buyer_id: @charlie.id }, as: :json
     end
     assert_response :not_found
+    assert response.parsed_body.key?("error")
+    assert response.parsed_body.key?("details")
   end
 
   # ── Index ──────────────────────────────────────────────────────
@@ -157,7 +159,8 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
       patch fail_api_v1_execution_url(id: 99999)
     end
     assert_response :not_found
-    assert_includes response.parsed_body["error"], "not found"
+    assert_includes response.parsed_body["error"], "Couldn't find Execution"
+    assert_equal [], response.parsed_body["details"]
   end
 
   test "fail returns error when author has insufficient balance" do
@@ -167,6 +170,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
       patch fail_api_v1_execution_url(@execution)
     end
     assert_response :unprocessable_entity
-    assert_includes response.parsed_body["error"], "Insufficient balance"
+    assert_includes response.parsed_body["error"], "Validation failed"
+    assert response.parsed_body["details"].any?
   end
 end

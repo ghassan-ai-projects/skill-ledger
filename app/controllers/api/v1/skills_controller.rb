@@ -9,8 +9,6 @@ module Api
       def show
         skill = Skill.includes(:author).find(params[:id])
         render json: skill.as_json(include: { author: { only: %i[id name] } })
-      rescue ActiveRecord::RecordNotFound
-        render json: { error: "Skill not found" }, status: :not_found
       end
 
       def create

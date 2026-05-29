@@ -55,6 +55,15 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
   test "GET /api/v1/skills/:id returns 404 for missing skill" do
     get api_v1_skill_url(id: 99999)
     assert_response :not_found
+    assert_includes response.parsed_body["error"], "Couldn't find Skill"
+    assert_equal [], response.parsed_body["details"]
+  end
+
+  test "GET /api/v1/skills/:id returns consistent error shape on 404" do
+    get api_v1_skill_url(id: 99999)
+    assert_response :not_found
+    assert response.parsed_body.key?("error")
+    assert response.parsed_body.key?("details")
   end
 
   # ── Create ─────────────────────────────────────────────────────
@@ -120,5 +129,14 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     end
     assert_response :unprocessable_entity
     assert_includes response.parsed_body["error"], "Name"
+  end
+
+  test "POST /api/v1/skills returns 400 for missing skill params" do
+    assert_no_difference("Skill.count") do
+      post api_v1_skills_url, params: {}, as: :json
+    end
+    assert_response :bad_request
+    assert_includes response.parsed_body["error"], "Missing required parameter"
+    assert response.parsed_body["details"].any? { |d| d.include?("skill") }
   end
 end

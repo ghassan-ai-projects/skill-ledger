@@ -33,10 +33,6 @@ module Api
         )
 
         render json: execution, status: :created
-      rescue ActiveRecord::RecordNotFound
-        render json: { error: "Skill not found" }, status: :not_found
-      rescue LedgerTransactionService::InsufficientBalanceError
-        render json: { error: "Buyer has insufficient balance" }, status: :unprocessable_entity
       end
 
       def fail
@@ -73,10 +69,6 @@ module Api
         end
 
         render json: execution, status: :ok
-      rescue ActiveRecord::RecordNotFound
-        render json: { error: "Execution not found" }, status: :not_found
-      rescue ActiveRecord::RecordInvalid
-        render json: { error: "Insufficient balance to process failure" }, status: :unprocessable_entity
       end
     end
   end
