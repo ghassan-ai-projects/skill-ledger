@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_29_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_29_130000) do
   create_table "accounts", force: :cascade do |t|
     t.string "api_key", null: false
     t.decimal "balance", precision: 10, scale: 2, default: "0.0", null: false
@@ -30,6 +30,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_29_120000) do
     t.datetime "updated_at", null: false
     t.index ["buyer_id"], name: "index_executions_on_buyer_id"
     t.index ["skill_id"], name: "index_executions_on_skill_id"
+  end
+
+  create_table "favorites", force: :cascade do |t|
+    t.integer "account_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "skill_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "skill_id"], name: "index_favorites_on_account_id_and_skill_id", unique: true
+    t.index ["account_id"], name: "index_favorites_on_account_id"
+    t.index ["skill_id"], name: "index_favorites_on_skill_id"
   end
 
   create_table "ledger_entries", force: :cascade do |t|
@@ -67,6 +77,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_29_120000) do
 
   add_foreign_key "executions", "accounts", column: "buyer_id"
   add_foreign_key "executions", "skills"
+  add_foreign_key "favorites", "accounts", on_delete: :cascade
+  add_foreign_key "favorites", "skills", on_delete: :cascade
   add_foreign_key "ledger_entries", "accounts", column: "from_account_id"
   add_foreign_key "ledger_entries", "accounts", column: "to_account_id"
   add_foreign_key "reviews", "executions"

@@ -77,4 +77,13 @@ unless exec2.review.present?
   puts "  - Review: Charlie rated Code Review 5/5"
 end
 
+# ---------------------------------------------------------------------------
+# Demo Favorites
+# ---------------------------------------------------------------------------
+Favorite.find_or_create_by!(account: bob, skill: data_analysis)
+puts "  - Favorite: Bob favorited Data Analysis"
+
+Favorite.find_or_create_by!(account: charlie, skill: code_review)
+puts "  - Favorite: Charlie favorited Code Review"
+
 puts "Seeding complete!"

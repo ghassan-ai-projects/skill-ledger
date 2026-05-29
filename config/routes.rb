@@ -28,6 +28,10 @@ Rails.application.routes.draw do
           get :earnings, to: "analytics#earnings"
         end
       end
+
+      resources :favorites, only: %i[create index destroy]
+
+      get "me/library", to: "library#index"
     end
   end
 end

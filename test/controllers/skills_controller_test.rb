@@ -68,6 +68,8 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     skill = response.parsed_body["skills"].find { |s| s["name"] == "Data Analysis" }
     assert skill.key?("average_rating")
     assert skill.key?("review_count")
+    assert skill.key?("favorite_count")
+    assert skill.key?("is_favorited")
   end
 
   test "GET /api/v1/skills returns empty list when no skills exist" do
@@ -233,8 +235,11 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     body = response.parsed_body
     assert body.key?("average_rating")
     assert body.key?("review_count")
+    assert body.key?("favorite_count")
+    assert body.key?("is_favorited")
     assert_equal 4.0, body["average_rating"]
     assert_equal 1, body["review_count"]
+    assert_equal false, body["is_favorited"] # Alice did not favorite her own skill
   end
 
   test "GET /api/v1/skills/:id returns 404 for missing skill" do

@@ -437,6 +437,135 @@ curl -s http://localhost:3000/api/v1/reports | jq
 | `total_slashed` | Total credits slashed from failed executions |
 | `total_ledger_balance` | Sum of all account balances |
 
+### Reviews
+
+#### `POST /api/v1/executions/:id/review` — Review an execution
+
+Allows a buyer to rate a completed execution (1-5) with optional text.
+
+```bash
+curl -s -X POST http://localhost:3000/api/v1/executions/1/review \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{ "rating": 4, "review_text": "Great work!" }' | jq
+```
+
+**Response `201 Created`:**
+```json
+{
+  "id": 1,
+  "rating": 4,
+  "review_text": "Great work!",
+  "buyer_name": "Bob",
+  "created_at": "2026-05-29T12:00:00.000Z"
+}
+```
+
+**Error `403 Forbidden`** — not the buyer.
+
+**Error `422 Unprocessable Entity`** — not completed, duplicate, or self-review.
+
+#### `GET /api/v1/skills/:id/reviews` — List reviews for a skill
+
+Returns all reviews for a skill, newest first, paginated.
+
+```bash
+curl -s http://localhost:3000/api/v1/skills/1/reviews \
+  -H "X-API-Key: YOUR_API_KEY" | jq
+```
+
+**Response `200 OK`:**
+```json
+{
+  "reviews": [
+    {
+      "id": 1,
+      "rating": 4,
+      "review_text": "Great work!",
+      "buyer_name": "Bob",
+      "created_at": "2026-05-29T12:00:00.000Z"
+    }
+  ],
+  "meta": { "current_page": 1, "total_pages": 1, "total_count": 1, "per_page": 20 }
+}
+```
+
+### Favorites
+
+#### `POST /api/v1/favorites` — Add a skill to favorites
+
+```bash
+curl -s -X POST http://localhost:3000/api/v1/favorites \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{ "skill_id": 1 }' | jq
+```
+
+**Response `201 Created`:**
+```json
+{ "message": "Skill added to favorites", "favorite_id": 1 }
+```
+
+**Error `422`** — duplicate, **`404`** — skill not found.
+
+#### `DELETE /api/v1/favorites/:skill_id` — Remove a favorite
+
+```bash
+curl -s -X DELETE http://localhost:3000/api/v1/favorites/1 \
+  -H "X-API-Key: YOUR_API_KEY"
+```
+
+**Response `204 No Content`**
+
+#### `GET /api/v1/favorites` — List favorited skills
+
+Returns favorited skills with full skill details, paginated.
+
+```bash
+curl -s http://localhost:3000/api/v1/favorites \
+  -H "X-API-Key: YOUR_API_KEY" | jq
+```
+
+**Response `200 OK`:**
+```json
+{
+  "favorites": [
+    {
+      "id": 1,
+      "name": "Data Analysis",
+      "author": { "id": 1, "name": "Alice" },
+      "average_rating": 4.0,
+      "review_count": 1,
+      "favorite_count": 2,
+      "is_favorited": true
+    }
+  ],
+  "meta": { "current_page": 1, "total_pages": 1, "total_count": 1, "per_page": 20 }
+}
+```
+
+### Library
+
+#### `GET /api/v1/me/library` — Personal library
+
+Returns all skills relevant to the authenticated user: favorites, purchased, and authored.
+
+```bash
+curl -s http://localhost:3000/api/v1/me/library \
+  -H "X-API-Key: YOUR_API_KEY" | jq
+```
+
+**Response `200 OK`:**
+```json
+{
+  "favorites": [ ...skills with full details... ],
+  "purchased": [ ...skills executed, with last_execution_timestamp... ],
+  "my_skills": [ ...authored skills... ]
+}
+```
+
+---
+
 ### Analytics
 
 #### `GET /api/v1/authors/:id/analytics` — Author analytics dashboard
