@@ -49,4 +49,32 @@ code_review = Skill.find_or_create_by!(name: "Code Review") do |s|
 end
 puts "  - Skill: #{code_review.name} (by #{code_review.author.name}, #{code_review.price_per_call} credits/call)#{code_review.webhook_url ? " — webhook: #{code_review.webhook_url}" : ""}"
 
+# ---------------------------------------------------------------------------
+# Demo Executions (for reviews)
+# ---------------------------------------------------------------------------
+exec1 = Execution.find_or_create_by!(skill: data_analysis, buyer: bob) do |e|
+  e.status = "completed"
+  e.timestamp = Time.current
+end
+puts "  - Execution: #{exec1.id} — #{exec1.buyer.name} bought #{exec1.skill.name} (completed)"
+
+exec2 = Execution.find_or_create_by!(skill: code_review, buyer: charlie) do |e|
+  e.status = "completed"
+  e.timestamp = Time.current
+end
+puts "  - Execution: #{exec2.id} — #{exec2.buyer.name} bought #{exec2.skill.name} (completed)"
+
+# ---------------------------------------------------------------------------
+# Demo Reviews
+# ---------------------------------------------------------------------------
+unless exec1.review.present?
+  Review.create!(execution: exec1, rating: 4, review_text: "Great analysis, very thorough!")
+  puts "  - Review: Bob rated Data Analysis 4/5"
+end
+
+unless exec2.review.present?
+  Review.create!(execution: exec2, rating: 5, review_text: "Excellent code review with detailed suggestions.")
+  puts "  - Review: Charlie rated Code Review 5/5"
+end
+
 puts "Seeding complete!"

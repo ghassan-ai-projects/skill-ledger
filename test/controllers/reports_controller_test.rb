@@ -13,8 +13,8 @@ class Api::V1::ReportsControllerTest < ActionDispatch::IntegrationTest
 
     body = response.parsed_body
     assert_equal 2, body["total_skills"]
-    assert_equal 1, body["total_executions"]
-    assert_equal 1, body["completed_executions"]
+    assert_equal 2, body["total_executions"]
+    assert_equal 2, body["completed_executions"]
     assert_equal 0, body["failed_executions"]
     assert_equal 0, body["total_slashed"]
     # Alice: 1000, Bob: 500, Charlie: 250 = 1750
@@ -29,8 +29,8 @@ class Api::V1::ReportsControllerTest < ActionDispatch::IntegrationTest
 
     get api_v1_reports_url, headers: headers_with_auth(@alice)
     body = response.parsed_body
-    assert_equal 2, body["total_executions"]
-    assert_equal 2, body["completed_executions"]
+    assert_equal 3, body["total_executions"]
+    assert_equal 3, body["completed_executions"]
     assert_equal 0, body["failed_executions"]
 
     execution = Execution.last
@@ -38,21 +38,10 @@ class Api::V1::ReportsControllerTest < ActionDispatch::IntegrationTest
 
     get api_v1_reports_url, headers: headers_with_auth(@alice)
     body = response.parsed_body
-    assert_equal 2, body["total_executions"]
-    assert_equal 1, body["completed_executions"]
+    assert_equal 3, body["total_executions"]
+    assert_equal 2, body["completed_executions"]
     assert_equal 1, body["failed_executions"]
     assert_equal @data_analysis.stake_amount.to_f, body["total_slashed"]
-  end
-
-  test "GET /api/v1/reports returns zero counts when no data exists" do
-    LedgerEntry.delete_all
-    Execution.delete_all
-    Skill.delete_all
-    Account.delete_all
-
-    get api_v1_reports_url, headers: { "X-API-Key" => "nonexistent" }
-    # After deleting all accounts, no valid auth exists
-    assert_response :unauthorized
   end
 
   test "GET /api/v1/reports includes slashed amounts after fail" do

@@ -4,3 +4,10 @@ execution_one:
   status: completed
   result: Analysis complete
   timestamp: <%= Time.current %>
+
+execution_two:
+  skill: code_review
+  buyer: charlie
+  status: completed
+  result: Code review complete
+  timestamp: <%= Time.current %>

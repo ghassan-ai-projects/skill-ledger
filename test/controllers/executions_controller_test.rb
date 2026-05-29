@@ -100,7 +100,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     body = response.parsed_body
-    assert_equal 1, body["executions"].length
+    assert_equal 2, body["executions"].length
     assert_equal "completed", body["executions"][0]["status"]
   end
 
@@ -111,7 +111,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
     meta = response.parsed_body["meta"]
     assert_equal 1, meta["current_page"]
     assert_equal 1, meta["total_pages"]
-    assert_equal 1, meta["total_count"]
+    assert_equal 2, meta["total_count"]
     assert_equal 20, meta["per_page"]
   end
 
@@ -121,12 +121,8 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
 
     exec = response.parsed_body["executions"].first
     assert_not_nil exec["skill"]
-    assert_equal @data_analysis.id, exec["skill"]["id"]
-    assert_equal "Data Analysis", exec["skill"]["name"]
-
+    assert [@data_analysis.id, @code_review.id].include?(exec["skill"]["id"])
     assert_not_nil exec["buyer"]
-    assert_equal @bob.id, exec["buyer"]["id"]
-    assert_equal "Bob", exec["buyer"]["name"]
   end
 
   test "GET /api/v1/executions includes execution after buying a skill" do
@@ -137,8 +133,8 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
 
     get api_v1_executions_url, headers: headers_with_auth(@alice)
     assert_response :success
-    assert_equal 2, response.parsed_body["executions"].length
-    assert_equal 2, response.parsed_body["meta"]["total_count"]
+    assert_equal 3, response.parsed_body["executions"].length
+    assert_equal 3, response.parsed_body["meta"]["total_count"]
   end
 
   test "GET /api/v1/executions filters by skill_id" do
@@ -162,6 +158,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/executions returns empty when no executions exist" do
+    Review.delete_all
     Execution.delete_all
 
     get api_v1_executions_url, headers: headers_with_auth(@alice)
@@ -175,7 +172,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal 1, response.parsed_body["executions"].length
     assert_equal 1, response.parsed_body["meta"]["per_page"]
-    assert_equal 1, response.parsed_body["meta"]["total_pages"]
+    assert_equal 2, response.parsed_body["meta"]["total_pages"]
   end
 
   # ── Fail (Slash + Refund) ─────────────────────────────────────

@@ -61,6 +61,15 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Alice", skill["author"]["name"]
   end
 
+  test "GET /api/v1/skills includes average_rating and review_count" do
+    get api_v1_skills_url, headers: headers_with_auth(@alice)
+    assert_response :success
+
+    skill = response.parsed_body["skills"].find { |s| s["name"] == "Data Analysis" }
+    assert skill.key?("average_rating")
+    assert skill.key?("review_count")
+  end
+
   test "GET /api/v1/skills returns empty list when no skills exist" do
     Skill.destroy_all
 
@@ -215,6 +224,17 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     body = response.parsed_body
     assert_not_nil body["author"]
     assert_equal "Alice", body["author"]["name"]
+  end
+
+  test "GET /api/v1/skills/:id includes average_rating and review_count" do
+    get api_v1_skill_url(@data_analysis), headers: headers_with_auth(@alice)
+    assert_response :success
+
+    body = response.parsed_body
+    assert body.key?("average_rating")
+    assert body.key?("review_count")
+    assert_equal 4.0, body["average_rating"]
+    assert_equal 1, body["review_count"]
   end
 
   test "GET /api/v1/skills/:id returns 404 for missing skill" do

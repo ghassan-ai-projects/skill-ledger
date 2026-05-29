@@ -3,13 +3,18 @@ Rails.application.routes.draw do
 
   namespace :api do
     namespace :v1 do
-      resources :skills, only: %i[index show create]
+      resources :skills, only: %i[index show create] do
+        member do
+          get :reviews, to: "reviews#index"
+        end
+      end
 
       post "skills/:skill_id/execute", to: "executions#create", as: :execute_skill
 
       resources :executions, only: %i[index] do
         member do
           patch :fail
+          post :review, to: "reviews#create"
         end
       end
 

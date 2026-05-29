@@ -23,14 +23,20 @@ module Api
         meta = result[:meta]
 
         render json: {
-          skills: paginated_skills.as_json(include: { author: { only: %i[id name] } }),
+          skills: paginated_skills.as_json(
+            include: { author: { only: %i[id name] } },
+            methods: [:average_rating, :review_count]
+          ),
           meta: meta
         }
       end
 
       def show
         skill = Skill.includes(:author).find(params[:id])
-        render json: skill.as_json(include: { author: { only: %i[id name] } })
+        render json: skill.as_json(
+          include: { author: { only: %i[id name] } },
+          methods: [:average_rating, :review_count]
+        )
       end
 
       def create
