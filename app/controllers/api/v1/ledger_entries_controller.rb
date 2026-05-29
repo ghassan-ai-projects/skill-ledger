@@ -7,12 +7,20 @@ module Api
           entries = entries.where(from_account_id: params[:account_id])
                             .or(LedgerEntry.where(to_account_id: params[:account_id]))
         end
-        render json: entries.as_json(
-          include: {
-            from_account: { only: %i[id name] },
-            to_account: { only: %i[id name] }
-          }
-        )
+
+        result = paginate(entries)
+        paginated = result[:collection]
+        meta = result[:meta]
+
+        render json: {
+          ledger_entries: paginated.as_json(
+            include: {
+              from_account: { only: %i[id name] },
+              to_account: { only: %i[id name] }
+            }
+          ),
+          meta: meta
+        }
       end
     end
   end

@@ -100,15 +100,26 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     body = response.parsed_body
-    assert_equal 1, body.length
-    assert_equal "completed", body[0]["status"]
+    assert_equal 1, body["executions"].length
+    assert_equal "completed", body["executions"][0]["status"]
+  end
+
+  test "GET /api/v1/executions includes meta with pagination info" do
+    get api_v1_executions_url, headers: headers_with_auth(@alice)
+    assert_response :success
+
+    meta = response.parsed_body["meta"]
+    assert_equal 1, meta["current_page"]
+    assert_equal 1, meta["total_pages"]
+    assert_equal 1, meta["total_count"]
+    assert_equal 20, meta["per_page"]
   end
 
   test "GET /api/v1/executions includes skill and buyer info" do
     get api_v1_executions_url, headers: headers_with_auth(@alice)
     assert_response :success
 
-    exec = response.parsed_body.first
+    exec = response.parsed_body["executions"].first
     assert_not_nil exec["skill"]
     assert_equal @data_analysis.id, exec["skill"]["id"]
     assert_equal "Data Analysis", exec["skill"]["name"]
@@ -126,7 +137,8 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
 
     get api_v1_executions_url, headers: headers_with_auth(@alice)
     assert_response :success
-    assert_equal 2, response.parsed_body.length
+    assert_equal 2, response.parsed_body["executions"].length
+    assert_equal 2, response.parsed_body["meta"]["total_count"]
   end
 
   test "GET /api/v1/executions filters by skill_id" do
@@ -138,14 +150,15 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
     get api_v1_executions_url(skill_id: @data_analysis.id), headers: headers_with_auth(@alice)
     assert_response :success
     body = response.parsed_body
-    assert_equal 1, body.length
-    assert_equal @data_analysis.id, body[0]["skill_id"]
+    assert_equal 1, body["executions"].length
+    assert_equal @data_analysis.id, body["executions"][0]["skill_id"]
   end
 
   test "GET /api/v1/executions returns empty when no executions match skill_id filter" do
     get api_v1_executions_url(skill_id: 99999), headers: headers_with_auth(@alice)
     assert_response :success
-    assert_equal [], response.parsed_body
+    assert_equal [], response.parsed_body["executions"]
+    assert_equal 0, response.parsed_body["meta"]["total_count"]
   end
 
   test "GET /api/v1/executions returns empty when no executions exist" do
@@ -153,7 +166,16 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
 
     get api_v1_executions_url, headers: headers_with_auth(@alice)
     assert_response :success
-    assert_equal [], response.parsed_body
+    assert_equal [], response.parsed_body["executions"]
+    assert_equal 0, response.parsed_body["meta"]["total_count"]
+  end
+
+  test "GET /api/v1/executions paginates correctly" do
+    get api_v1_executions_url(page: 1, per_page: 1), headers: headers_with_auth(@alice)
+    assert_response :success
+    assert_equal 1, response.parsed_body["executions"].length
+    assert_equal 1, response.parsed_body["meta"]["per_page"]
+    assert_equal 1, response.parsed_body["meta"]["total_pages"]
   end
 
   # ── Fail (Slash + Refund) ─────────────────────────────────────

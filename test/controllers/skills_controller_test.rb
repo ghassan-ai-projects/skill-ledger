@@ -34,17 +34,28 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     body = response.parsed_body
-    assert_equal 2, body.length
-    names = body.map { |s| s["name"] }
+    assert_equal 2, body["skills"].length
+    names = body["skills"].map { |s| s["name"] }
     assert_includes names, "Data Analysis"
     assert_includes names, "Code Review"
+  end
+
+  test "GET /api/v1/skills includes meta with pagination info" do
+    get api_v1_skills_url, headers: headers_with_auth(@alice)
+    assert_response :success
+
+    meta = response.parsed_body["meta"]
+    assert_equal 1, meta["current_page"]
+    assert_equal 1, meta["total_pages"]
+    assert_equal 2, meta["total_count"]
+    assert_equal 20, meta["per_page"]
   end
 
   test "GET /api/v1/skills includes author info" do
     get api_v1_skills_url, headers: headers_with_auth(@alice)
     assert_response :success
 
-    skill = response.parsed_body.find { |s| s["name"] == "Data Analysis" }
+    skill = response.parsed_body["skills"].find { |s| s["name"] == "Data Analysis" }
     assert_not_nil skill["author"]
     assert_equal @alice.id, skill["author"]["id"]
     assert_equal "Alice", skill["author"]["name"]
@@ -55,7 +66,135 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
 
     get api_v1_skills_url, headers: headers_with_auth(@alice)
     assert_response :success
-    assert_equal [], response.parsed_body
+    assert_equal [], response.parsed_body["skills"]
+    assert_equal 0, response.parsed_body["meta"]["total_count"]
+  end
+
+  # ── Search ─────────────────────────────────────────────────────
+
+  test "GET /api/v1/skills?q= filters by name (case-insensitive)" do
+    get api_v1_skills_url(q: "data"), headers: headers_with_auth(@alice)
+    assert_response :success
+
+    body = response.parsed_body
+    assert_equal 1, body["skills"].length
+    assert_equal "Data Analysis", body["skills"][0]["name"]
+  end
+
+  test "GET /api/v1/skills?q= filters by description" do
+    get api_v1_skills_url(q: "generate reports"), headers: headers_with_auth(@alice)
+    assert_response :success
+
+    body = response.parsed_body
+    assert_equal 1, body["skills"].length
+    assert_equal "Data Analysis", body["skills"][0]["name"]
+  end
+
+  test "GET /api/v1/skills?q= returns empty when no match" do
+    get api_v1_skills_url(q: "zzzzz"), headers: headers_with_auth(@alice)
+    assert_response :success
+    assert_equal [], response.parsed_body["skills"]
+    assert_equal 0, response.parsed_body["meta"]["total_count"]
+  end
+
+  # ── Author filter ──────────────────────────────────────────────
+
+  test "GET /api/v1/skills?author_id= filters by author" do
+    get api_v1_skills_url(author_id: @alice.id), headers: headers_with_auth(@alice)
+    assert_response :success
+
+    body = response.parsed_body
+    assert_equal 1, body["skills"].length
+    assert_equal @alice.id, body["skills"][0]["author_id"]
+  end
+
+  test "GET /api/v1/skills?author_id= returns empty for non-existent author" do
+    get api_v1_skills_url(author_id: 99999), headers: headers_with_auth(@alice)
+    assert_response :success
+    assert_equal [], response.parsed_body["skills"]
+  end
+
+  test "GET /api/v1/skills combines q and author_id filters" do
+    get api_v1_skills_url(q: "code", author_id: @bob.id), headers: headers_with_auth(@alice)
+    assert_response :success
+
+    body = response.parsed_body
+    assert_equal 1, body["skills"].length
+    assert_equal "Code Review", body["skills"][0]["name"]
+  end
+
+  test "GET /api/v1/skills with combined filters returns empty when no match" do
+    get api_v1_skills_url(q: "data", author_id: @bob.id), headers: headers_with_auth(@alice)
+    assert_response :success
+    assert_equal [], response.parsed_body["skills"]
+  end
+
+  # ── Sort ───────────────────────────────────────────────────────
+
+  test "GET /api/v1/skills?sort=name&order=asc sorts ascending" do
+    get api_v1_skills_url(sort: "name", order: "asc"), headers: headers_with_auth(@alice)
+    assert_response :success
+
+    names = response.parsed_body["skills"].map { |s| s["name"] }
+    assert_equal ["Code Review", "Data Analysis"], names
+  end
+
+  test "GET /api/v1/skills?sort=name&order=desc sorts descending" do
+    get api_v1_skills_url(sort: "name", order: "desc"), headers: headers_with_auth(@alice)
+    assert_response :success
+
+    names = response.parsed_body["skills"].map { |s| s["name"] }
+    assert_equal ["Data Analysis", "Code Review"], names
+  end
+
+  test "GET /api/v1/skills returns 422 for invalid sort column" do
+    get api_v1_skills_url(sort: "invalid_column"), headers: headers_with_auth(@alice)
+    assert_response :unprocessable_entity
+    assert_includes response.parsed_body["error"], "Invalid sort column"
+  end
+
+  # ── Pagination ─────────────────────────────────────────────────
+
+  test "GET /api/v1/skills?page=1&per_page=1 returns first page" do
+    get api_v1_skills_url(page: 1, per_page: 1), headers: headers_with_auth(@alice)
+    assert_response :success
+
+    body = response.parsed_body
+    assert_equal 1, body["skills"].length
+    assert_equal 1, body["meta"]["current_page"]
+    assert_equal 2, body["meta"]["total_pages"]
+    assert_equal 2, body["meta"]["total_count"]
+    assert_equal 1, body["meta"]["per_page"]
+  end
+
+  test "GET /api/v1/skills?page=2&per_page=1 returns second page" do
+    get api_v1_skills_url(page: 2, per_page: 1), headers: headers_with_auth(@alice)
+    assert_response :success
+
+    body = response.parsed_body
+    assert_equal 1, body["skills"].length
+    assert_equal 2, body["meta"]["current_page"]
+  end
+
+  test "GET /api/v1/skills?page=99 returns empty list beyond total pages" do
+    get api_v1_skills_url(page: 99), headers: headers_with_auth(@alice)
+    assert_response :success
+    assert_equal [], response.parsed_body["skills"]
+    assert_equal 99, response.parsed_body["meta"]["current_page"]
+  end
+
+  test "GET /api/v1/skills?per_page=100 uses max limit" do
+    get api_v1_skills_url(per_page: 100), headers: headers_with_auth(@alice)
+    assert_response :success
+    assert_equal 2, response.parsed_body["skills"].length
+    assert_equal 100, response.parsed_body["meta"]["per_page"]
+  end
+
+  test "GET /api/v1/skills?per_page=999 caps at max" do
+    get api_v1_skills_url(per_page: 999), headers: headers_with_auth(@alice)
+    assert_response :success
+    assert_equal 2, response.parsed_body["skills"].length
+    assert_equal 100, response.parsed_body["meta"]["per_page"]
   end
 
   # ── Show ───────────────────────────────────────────────────────

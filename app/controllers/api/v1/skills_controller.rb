@@ -2,8 +2,30 @@ module Api
   module V1
     class SkillsController < BaseController
       def index
-        skills = Skill.includes(:author).all
-        render json: skills.as_json(include: { author: { only: %i[id name] } })
+        skills = Skill.includes(:author)
+
+        # Search by name or description
+        if params[:q].present?
+          q = "%#{params[:q]}%"
+          skills = skills.where("name LIKE ? OR description LIKE ?", q, q)
+        end
+
+        # Filter by author
+        skills = skills.where(author_id: params[:author_id]) if params[:author_id].present?
+
+        # Sort
+        sorted = apply_sorting(skills)
+        return unless sorted
+
+        # Paginate
+        result = paginate(sorted)
+        paginated_skills = result[:collection]
+        meta = result[:meta]
+
+        render json: {
+          skills: paginated_skills.as_json(include: { author: { only: %i[id name] } }),
+          meta: meta
+        }
       end
 
       def show
