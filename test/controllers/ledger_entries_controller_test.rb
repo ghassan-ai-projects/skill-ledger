@@ -53,4 +53,36 @@ class Api::V1::LedgerEntriesControllerTest < ActionDispatch::IntegrationTest
     assert_not_nil alice_to_bob
     assert_equal "100.0", alice_to_bob["amount"]
   end
+
+  test "GET /api/v1/ledger filters by account_id (as sender)" do
+    get api_v1_ledger_index_url(account_id: @alice.id)
+    assert_response :success
+
+    body = response.parsed_body
+    assert_equal 1, body.length
+    assert_equal @alice.id, body[0]["from_account"]["id"]
+  end
+
+  test "GET /api/v1/ledger filters by account_id (as receiver)" do
+    get api_v1_ledger_index_url(account_id: @charlie.id)
+    assert_response :success
+
+    body = response.parsed_body
+    assert_equal 1, body.length
+    assert_equal @charlie.id, body[0]["to_account"]["id"]
+  end
+
+  test "GET /api/v1/ledger returns empty when no entries match account_id filter" do
+    get api_v1_ledger_index_url(account_id: 99999)
+    assert_response :success
+    assert_equal [], response.parsed_body
+  end
+
+  test "GET /api/v1/ledger returns empty when no entries exist" do
+    LedgerEntry.delete_all
+
+    get api_v1_ledger_index_url
+    assert_response :success
+    assert_equal [], response.parsed_body
+  end
 end

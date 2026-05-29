@@ -2,7 +2,8 @@ module Api
   module V1
     class ExecutionsController < ApplicationController
       def index
-        executions = Execution.includes(:skill, :buyer).all
+        executions = Execution.includes(:skill, :buyer)
+        executions = executions.where(skill_id: params[:skill_id]) if params[:skill_id].present?
         render json: executions.as_json(
           include: {
             skill: { only: %i[id name], methods: [] },

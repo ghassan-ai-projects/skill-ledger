@@ -4,7 +4,6 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
   setup do
     @alice = accounts(:alice)
     @bob = accounts(:bob)
-    @charlie = accounts(:charlie)
     @data_analysis = skills(:data_analysis)
     @code_review = skills(:code_review)
   end
@@ -30,6 +29,14 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     assert_not_nil skill["author"]
     assert_equal @alice.id, skill["author"]["id"]
     assert_equal "Alice", skill["author"]["name"]
+  end
+
+  test "GET /api/v1/skills returns empty list when no skills exist" do
+    Skill.destroy_all
+
+    get api_v1_skills_url
+    assert_response :success
+    assert_equal [], response.parsed_body
   end
 
   # ── Show ───────────────────────────────────────────────────────
@@ -130,6 +137,25 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     assert_includes response.parsed_body["error"], "Name"
   end
+
+  test "POST /api/v1/skills rejects negative price" do
+    assert_no_difference("Skill.count") do
+      post api_v1_skills_url, params: {
+        skill: {
+          name: "Negative Price",
+          author_id: @alice.id,
+          price_per_call: -10.00,
+          stake_amount: 50.00
+        }
+      }, as: :json
+    end
+    assert_response :unprocessable_entity
+    # SkillsController renders validation errors via full_messages.to_sentence,
+    # not through the global rescue handler
+    assert_includes response.parsed_body["error"], "greater than or equal to 0"
+  end
+
+  # ── Error shapes ───────────────────────────────────────────────
 
   test "POST /api/v1/skills returns 400 for missing skill params" do
     assert_no_difference("Skill.count") do

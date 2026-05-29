@@ -115,6 +115,33 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 2, response.parsed_body.length
   end
 
+  test "GET /api/v1/executions filters by skill_id" do
+    # Execute the other skill too
+    post api_v1_execute_skill_url(@code_review), params: { buyer_id: @charlie.id }, as: :json
+    assert_response :created
+
+    # Filter by data_analysis skill
+    get api_v1_executions_url(skill_id: @data_analysis.id)
+    assert_response :success
+    body = response.parsed_body
+    assert_equal 1, body.length
+    assert_equal @data_analysis.id, body[0]["skill_id"]
+  end
+
+  test "GET /api/v1/executions returns empty when no executions match skill_id filter" do
+    get api_v1_executions_url(skill_id: 99999)
+    assert_response :success
+    assert_equal [], response.parsed_body
+  end
+
+  test "GET /api/v1/executions returns empty when no executions exist" do
+    Execution.delete_all
+
+    get api_v1_executions_url
+    assert_response :success
+    assert_equal [], response.parsed_body
+  end
+
   # ── Fail (Slash + Refund) ─────────────────────────────────────
 
   test "fail slashes stake and refunds buyer" do
