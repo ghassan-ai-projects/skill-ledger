@@ -16,7 +16,9 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
     assert_difference("Execution.count", 1) do
       assert_difference -> { @charlie.reload.balance }, -@data_analysis.price_per_call do
         assert_difference -> { @alice.reload.balance }, @data_analysis.price_per_call do
-          post api_v1_execute_skill_url(@data_analysis), params: { buyer_id: @charlie.id }, as: :json
+          post api_v1_execute_skill_url(@data_analysis),
+               params: { buyer_id: @charlie.id },
+               headers: headers_with_auth(@alice), as: :json
         end
       end
     end
@@ -30,7 +32,9 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
 
   test "POST /api/v1/skills/:id/execute creates a ledger entry" do
     assert_difference("LedgerEntry.count", 1) do
-      post api_v1_execute_skill_url(@data_analysis), params: { buyer_id: @charlie.id }, as: :json
+      post api_v1_execute_skill_url(@data_analysis),
+           params: { buyer_id: @charlie.id },
+           headers: headers_with_auth(@alice), as: :json
     end
     assert_response :created
 
@@ -43,7 +47,9 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
 
   test "POST /api/v1/skills/:id/execute returns error when buyer not found" do
     assert_no_difference(["Execution.count", "LedgerEntry.count"]) do
-      post api_v1_execute_skill_url(@data_analysis), params: { buyer_id: 99999 }, as: :json
+      post api_v1_execute_skill_url(@data_analysis),
+           params: { buyer_id: 99999 },
+           headers: headers_with_auth(@alice), as: :json
     end
     assert_response :unprocessable_entity
     assert_includes response.parsed_body["error"], "Buyer not found"
@@ -58,7 +64,9 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
     )
 
     assert_no_difference(["Execution.count", "LedgerEntry.count"]) do
-      post api_v1_execute_skill_url(expensive_skill), params: { buyer_id: @charlie.id }, as: :json
+      post api_v1_execute_skill_url(expensive_skill),
+           params: { buyer_id: @charlie.id },
+           headers: headers_with_auth(@alice), as: :json
     end
     assert_response :unprocessable_entity
     assert_includes response.parsed_body["error"], "Buyer has insufficient balance"
@@ -66,7 +74,9 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
 
   test "POST /api/v1/skills/:id/execute returns error when buyer is the author" do
     assert_no_difference(["Execution.count", "LedgerEntry.count"]) do
-      post api_v1_execute_skill_url(@data_analysis), params: { buyer_id: @alice.id }, as: :json
+      post api_v1_execute_skill_url(@data_analysis),
+           params: { buyer_id: @alice.id },
+           headers: headers_with_auth(@alice), as: :json
     end
     assert_response :unprocessable_entity
     assert_includes response.parsed_body["error"], "Cannot execute your own skill"
@@ -74,7 +84,9 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
 
   test "POST /api/v1/skills/:id/execute returns 404 for missing skill" do
     assert_no_difference(["Execution.count", "LedgerEntry.count"]) do
-      post api_v1_execute_skill_url(skill_id: 99999), params: { buyer_id: @charlie.id }, as: :json
+      post api_v1_execute_skill_url(skill_id: 99999),
+           params: { buyer_id: @charlie.id },
+           headers: headers_with_auth(@alice), as: :json
     end
     assert_response :not_found
     assert response.parsed_body.key?("error")
@@ -84,7 +96,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
   # ── Index ──────────────────────────────────────────────────────
 
   test "GET /api/v1/executions returns all executions" do
-    get api_v1_executions_url
+    get api_v1_executions_url, headers: headers_with_auth(@alice)
     assert_response :success
 
     body = response.parsed_body
@@ -93,7 +105,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/executions includes skill and buyer info" do
-    get api_v1_executions_url
+    get api_v1_executions_url, headers: headers_with_auth(@alice)
     assert_response :success
 
     exec = response.parsed_body.first
@@ -107,21 +119,23 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/executions includes execution after buying a skill" do
-    post api_v1_execute_skill_url(@data_analysis), params: { buyer_id: @charlie.id }, as: :json
+    post api_v1_execute_skill_url(@data_analysis),
+         params: { buyer_id: @charlie.id },
+         headers: headers_with_auth(@alice), as: :json
     assert_response :created
 
-    get api_v1_executions_url
+    get api_v1_executions_url, headers: headers_with_auth(@alice)
     assert_response :success
     assert_equal 2, response.parsed_body.length
   end
 
   test "GET /api/v1/executions filters by skill_id" do
-    # Execute the other skill too
-    post api_v1_execute_skill_url(@code_review), params: { buyer_id: @charlie.id }, as: :json
+    post api_v1_execute_skill_url(@code_review),
+         params: { buyer_id: @charlie.id },
+         headers: headers_with_auth(@alice), as: :json
     assert_response :created
 
-    # Filter by data_analysis skill
-    get api_v1_executions_url(skill_id: @data_analysis.id)
+    get api_v1_executions_url(skill_id: @data_analysis.id), headers: headers_with_auth(@alice)
     assert_response :success
     body = response.parsed_body
     assert_equal 1, body.length
@@ -129,7 +143,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/executions returns empty when no executions match skill_id filter" do
-    get api_v1_executions_url(skill_id: 99999)
+    get api_v1_executions_url(skill_id: 99999), headers: headers_with_auth(@alice)
     assert_response :success
     assert_equal [], response.parsed_body
   end
@@ -137,7 +151,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
   test "GET /api/v1/executions returns empty when no executions exist" do
     Execution.delete_all
 
-    get api_v1_executions_url
+    get api_v1_executions_url, headers: headers_with_auth(@alice)
     assert_response :success
     assert_equal [], response.parsed_body
   end
@@ -148,7 +162,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
     assert_difference("LedgerEntry.count", 2) do
       assert_difference -> { @alice.reload.balance }, -(@data_analysis.stake_amount + @data_analysis.price_per_call) do
         assert_difference -> { @bob.reload.balance }, @data_analysis.stake_amount + @data_analysis.price_per_call do
-          patch fail_api_v1_execution_url(@execution)
+          patch fail_api_v1_execution_url(@execution), headers: headers_with_auth(@alice)
         end
       end
     end
@@ -171,11 +185,11 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "fail returns error when execution already failed" do
-    patch fail_api_v1_execution_url(@execution)
+    patch fail_api_v1_execution_url(@execution), headers: headers_with_auth(@alice)
     assert_response :ok
 
     assert_no_difference("LedgerEntry.count") do
-      patch fail_api_v1_execution_url(@execution)
+      patch fail_api_v1_execution_url(@execution), headers: headers_with_auth(@alice)
     end
     assert_response :unprocessable_entity
     assert_includes response.parsed_body["error"], "already failed"
@@ -183,7 +197,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
 
   test "fail returns 404 for missing execution" do
     assert_no_difference(["LedgerEntry.count", "Execution.where(status: 'failed').count"]) do
-      patch fail_api_v1_execution_url(id: 99999)
+      patch fail_api_v1_execution_url(id: 99999), headers: headers_with_auth(@alice)
     end
     assert_response :not_found
     assert_includes response.parsed_body["error"], "Couldn't find Execution"
@@ -194,7 +208,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
     @alice.update!(balance: 0)
 
     assert_no_difference(["LedgerEntry.count", "Execution.where(status: 'failed').count"]) do
-      patch fail_api_v1_execution_url(@execution)
+      patch fail_api_v1_execution_url(@execution), headers: headers_with_auth(@alice)
     end
     assert_response :unprocessable_entity
     assert_includes response.parsed_body["error"], "Validation failed"

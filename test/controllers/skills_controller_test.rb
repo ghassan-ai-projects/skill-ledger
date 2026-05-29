@@ -8,10 +8,29 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     @code_review = skills(:code_review)
   end
 
+  # ── Authentication ────────────────────────────────────────────
+
+  test "returns 401 when X-API-Key header is missing" do
+    get api_v1_skills_url
+    assert_response :unauthorized
+    assert_includes response.parsed_body["error"], "Invalid or missing API key"
+  end
+
+  test "returns 401 when X-API-Key header is invalid" do
+    get api_v1_skills_url, headers: { "X-API-Key" => "invalid_key" }
+    assert_response :unauthorized
+    assert_includes response.parsed_body["error"], "Invalid or missing API key"
+  end
+
+  test "passes authentication with a valid API key" do
+    get api_v1_skills_url, headers: headers_with_auth(@alice)
+    assert_response :success
+  end
+
   # ── Index ──────────────────────────────────────────────────────
 
   test "GET /api/v1/skills returns all skills" do
-    get api_v1_skills_url
+    get api_v1_skills_url, headers: headers_with_auth(@alice)
     assert_response :success
 
     body = response.parsed_body
@@ -22,7 +41,7 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/skills includes author info" do
-    get api_v1_skills_url
+    get api_v1_skills_url, headers: headers_with_auth(@alice)
     assert_response :success
 
     skill = response.parsed_body.find { |s| s["name"] == "Data Analysis" }
@@ -34,7 +53,7 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
   test "GET /api/v1/skills returns empty list when no skills exist" do
     Skill.destroy_all
 
-    get api_v1_skills_url
+    get api_v1_skills_url, headers: headers_with_auth(@alice)
     assert_response :success
     assert_equal [], response.parsed_body
   end
@@ -42,7 +61,7 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
   # ── Show ───────────────────────────────────────────────────────
 
   test "GET /api/v1/skills/:id returns the skill" do
-    get api_v1_skill_url(@data_analysis)
+    get api_v1_skill_url(@data_analysis), headers: headers_with_auth(@alice)
     assert_response :success
 
     body = response.parsed_body
@@ -51,7 +70,7 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/skills/:id includes author info" do
-    get api_v1_skill_url(@data_analysis)
+    get api_v1_skill_url(@data_analysis), headers: headers_with_auth(@alice)
     assert_response :success
 
     body = response.parsed_body
@@ -60,14 +79,14 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/skills/:id returns 404 for missing skill" do
-    get api_v1_skill_url(id: 99999)
+    get api_v1_skill_url(id: 99999), headers: headers_with_auth(@alice)
     assert_response :not_found
     assert_includes response.parsed_body["error"], "Couldn't find Skill"
     assert_equal [], response.parsed_body["details"]
   end
 
   test "GET /api/v1/skills/:id returns consistent error shape on 404" do
-    get api_v1_skill_url(id: 99999)
+    get api_v1_skill_url(id: 99999), headers: headers_with_auth(@alice)
     assert_response :not_found
     assert response.parsed_body.key?("error")
     assert response.parsed_body.key?("details")
@@ -85,7 +104,7 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
           price_per_call: 10.00,
           stake_amount: 50.00
         }
-      }, as: :json
+      }, headers: headers_with_auth(@alice), as: :json
     end
     assert_response :created
 
@@ -103,7 +122,7 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
           price_per_call: 10.00,
           stake_amount: 50.00
         }
-      }, as: :json
+      }, headers: headers_with_auth(@alice), as: :json
     end
     assert_response :unprocessable_entity
     assert_includes response.parsed_body["error"], "Author not found"
@@ -118,7 +137,7 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
           price_per_call: 10.00,
           stake_amount: 9999.00
         }
-      }, as: :json
+      }, headers: headers_with_auth(@alice), as: :json
     end
     assert_response :unprocessable_entity
     assert_includes response.parsed_body["error"], "insufficient balance"
@@ -132,7 +151,7 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
           price_per_call: 10.00,
           stake_amount: 50.00
         }
-      }, as: :json
+      }, headers: headers_with_auth(@alice), as: :json
     end
     assert_response :unprocessable_entity
     assert_includes response.parsed_body["error"], "Name"
@@ -147,11 +166,9 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
           price_per_call: -10.00,
           stake_amount: 50.00
         }
-      }, as: :json
+      }, headers: headers_with_auth(@alice), as: :json
     end
     assert_response :unprocessable_entity
-    # SkillsController renders validation errors via full_messages.to_sentence,
-    # not through the global rescue handler
     assert_includes response.parsed_body["error"], "greater than or equal to 0"
   end
 
@@ -159,7 +176,7 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
 
   test "POST /api/v1/skills returns 400 for missing skill params" do
     assert_no_difference("Skill.count") do
-      post api_v1_skills_url, params: {}, as: :json
+      post api_v1_skills_url, params: {}, headers: headers_with_auth(@alice), as: :json
     end
     assert_response :bad_request
     assert_includes response.parsed_body["error"], "Missing required parameter"

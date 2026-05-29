@@ -1,6 +1,6 @@
 module Api
   module V1
-    class SkillsController < ApplicationController
+    class SkillsController < BaseController
       def index
         skills = Skill.includes(:author).all
         render json: skills.as_json(include: { author: { only: %i[id name] } })

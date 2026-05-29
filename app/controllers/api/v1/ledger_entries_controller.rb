@@ -1,6 +1,6 @@
 module Api
   module V1
-    class LedgerEntriesController < ApplicationController
+    class LedgerEntriesController < BaseController
       def index
         entries = LedgerEntry.includes(:from_account, :to_account)
         if params[:account_id].present?

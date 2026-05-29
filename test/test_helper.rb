@@ -10,6 +10,14 @@ module ActiveSupport
     # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
     fixtures :all
 
-    # Add more helper methods to be used by all tests here...
+    # Returns a Hash of headers including a valid X-API-Key for the given account fixture.
+    def headers_with_auth(account, other_headers = {})
+      { "X-API-Key" => account.api_key, "Content-Type" => "application/json" }.merge(other_headers)
+    end
+
+    # Shorthand: merge auth headers into any existing headers hash.
+    def authenticated_headers(account, headers = {})
+      headers.merge("X-API-Key" => account.api_key)
+    end
   end
 end

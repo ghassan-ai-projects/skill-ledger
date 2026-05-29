@@ -83,6 +83,49 @@ And two skills:
 
 ---
 
+## Authentication
+
+All API endpoints require authentication via an API key passed in the `X-API-Key` request header.
+
+Each **Account** has a unique `api_key` generated automatically on creation via `SecureRandom.hex(32)`.
+
+### How to authenticate
+
+Include the `X-API-Key` header with every request:
+
+```bash
+curl -s http://localhost:3000/api/v1/skills \
+  -H "X-API-Key: YOUR_API_KEY" | jq
+```
+
+### Obtaining an API key
+
+API keys are printed during seeding. To view an account's API key:
+
+```bash
+bin/rails db:seed
+# => Account: Alice (1000.0 credits) — API Key: abc123...
+```
+
+To backfill API keys for existing accounts:
+
+```bash
+bin/rails dev:generate_api_keys
+```
+
+### Error responses
+
+**`401 Unauthorized`** — missing or invalid API key:
+
+```json
+{
+  "error": "Invalid or missing API key",
+  "details": []
+}
+```
+
+---
+
 ## API Endpoints
 
 All endpoints are namespaced under `/api/v1`. Request and response bodies use JSON.

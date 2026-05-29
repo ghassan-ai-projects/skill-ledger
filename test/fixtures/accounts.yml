@@ -1,11 +1,14 @@
 alice:
   name: Alice
   balance: 1000.00
+  api_key: test_alice_api_key_123
 
 bob:
   name: Bob
   balance: 500.00
+  api_key: test_bob_api_key_456
 
 charlie:
   name: Charlie
   balance: 250.00
+  api_key: test_charlie_api_key_789

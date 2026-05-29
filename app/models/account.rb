@@ -6,4 +6,13 @@ class Account < ApplicationRecord
 
   validates :name, presence: true, uniqueness: true
   validates :balance, numericality: { greater_than_or_equal_to: 0 }
+  validates :api_key, presence: true, uniqueness: true
+
+  before_validation :generate_api_key, on: :create
+
+  private
+
+  def generate_api_key
+    self.api_key ||= SecureRandom.hex(32)
+  end
 end

@@ -9,7 +9,7 @@ class Api::V1::LedgerEntriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/ledger returns all ledger entries" do
-    get api_v1_ledger_index_url
+    get api_v1_ledger_index_url, headers: headers_with_auth(@alice)
     assert_response :success
 
     body = response.parsed_body
@@ -17,7 +17,7 @@ class Api::V1::LedgerEntriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/ledger includes from_account and to_account names" do
-    get api_v1_ledger_index_url
+    get api_v1_ledger_index_url, headers: headers_with_auth(@alice)
     assert_response :success
 
     entry = response.parsed_body.find { |e| e["entry_type"] == "transfer" }
@@ -30,10 +30,12 @@ class Api::V1::LedgerEntriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/ledger includes ledger entry created by skill execution" do
-    post api_v1_execute_skill_url(@data_analysis), params: { buyer_id: @charlie.id }, as: :json
+    post api_v1_execute_skill_url(@data_analysis),
+         params: { buyer_id: @charlie.id },
+         headers: headers_with_auth(@alice), as: :json
     assert_response :created
 
-    get api_v1_ledger_index_url
+    get api_v1_ledger_index_url, headers: headers_with_auth(@alice)
     assert_response :success
     assert_equal 3, response.parsed_body.length
 
@@ -44,7 +46,7 @@ class Api::V1::LedgerEntriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/ledger shows correct amounts" do
-    get api_v1_ledger_index_url
+    get api_v1_ledger_index_url, headers: headers_with_auth(@alice)
     assert_response :success
 
     alice_to_bob = response.parsed_body.find do |e|
@@ -55,7 +57,7 @@ class Api::V1::LedgerEntriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/ledger filters by account_id (as sender)" do
-    get api_v1_ledger_index_url(account_id: @alice.id)
+    get api_v1_ledger_index_url(account_id: @alice.id), headers: headers_with_auth(@alice)
     assert_response :success
 
     body = response.parsed_body
@@ -64,7 +66,7 @@ class Api::V1::LedgerEntriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/ledger filters by account_id (as receiver)" do
-    get api_v1_ledger_index_url(account_id: @charlie.id)
+    get api_v1_ledger_index_url(account_id: @charlie.id), headers: headers_with_auth(@alice)
     assert_response :success
 
     body = response.parsed_body
@@ -73,7 +75,7 @@ class Api::V1::LedgerEntriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/ledger returns empty when no entries match account_id filter" do
-    get api_v1_ledger_index_url(account_id: 99999)
+    get api_v1_ledger_index_url(account_id: 99999), headers: headers_with_auth(@alice)
     assert_response :success
     assert_equal [], response.parsed_body
   end
@@ -81,7 +83,7 @@ class Api::V1::LedgerEntriesControllerTest < ActionDispatch::IntegrationTest
   test "GET /api/v1/ledger returns empty when no entries exist" do
     LedgerEntry.delete_all
 
-    get api_v1_ledger_index_url
+    get api_v1_ledger_index_url, headers: headers_with_auth(@alice)
     assert_response :success
     assert_equal [], response.parsed_body
   end

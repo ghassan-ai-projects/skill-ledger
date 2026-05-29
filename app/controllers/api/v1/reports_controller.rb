@@ -1,6 +1,6 @@
 module Api
   module V1
-    class ReportsController < ApplicationController
+    class ReportsController < BaseController
       def index
         render json: {
           total_skills: Skill.count,
