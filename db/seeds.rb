@@ -36,15 +36,17 @@ data_analysis = Skill.find_or_create_by!(name: "Data Analysis") do |s|
   s.author = alice
   s.stake_amount = 200.00
   s.price_per_call = 50.00
+  s.webhook_url = ENV["DATA_ANALYSIS_WEBHOOK_URL"]
 end
-puts "  - Skill: #{data_analysis.name} (by #{data_analysis.author.name}, #{data_analysis.price_per_call} credits/call)"
+puts "  - Skill: #{data_analysis.name} (by #{data_analysis.author.name}, #{data_analysis.price_per_call} credits/call)#{data_analysis.webhook_url ? " — webhook: #{data_analysis.webhook_url}" : ""}"
 
 code_review = Skill.find_or_create_by!(name: "Code Review") do |s|
   s.description = "Review pull requests for bugs, security vulnerabilities, and adherence to best practices."
   s.author = bob
   s.stake_amount = 150.00
   s.price_per_call = 35.00
+  s.webhook_url = ENV["CODE_REVIEW_WEBHOOK_URL"]
 end
-puts "  - Skill: #{code_review.name} (by #{code_review.author.name}, #{code_review.price_per_call} credits/call)"
+puts "  - Skill: #{code_review.name} (by #{code_review.author.name}, #{code_review.price_per_call} credits/call)#{code_review.webhook_url ? " — webhook: #{code_review.webhook_url}" : ""}"
 
 puts "Seeding complete!"

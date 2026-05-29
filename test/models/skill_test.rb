@@ -49,4 +49,50 @@ class SkillTest < ActiveSupport::TestCase
     skill = skills(:data_analysis)
     assert_respond_to skill, :executions
   end
+
+  test "should accept valid https webhook_url" do
+    skill = Skill.new(
+      name: "Webhook Skill",
+      author: accounts(:alice),
+      stake_amount: 10,
+      price_per_call: 5,
+      webhook_url: "https://example.com/webhooks/test"
+    )
+    assert skill.valid?
+  end
+
+  test "should reject non-https webhook_url" do
+    skill = Skill.new(
+      name: "Bad Webhook",
+      author: accounts(:alice),
+      stake_amount: 10,
+      price_per_call: 5,
+      webhook_url: "http://example.com/webhook"
+    )
+    assert_not skill.valid?
+    assert_includes skill.errors[:webhook_url], "is invalid"
+  end
+
+  test "should reject invalid webhook_url format" do
+    skill = Skill.new(
+      name: "Bad Webhook",
+      author: accounts(:alice),
+      stake_amount: 10,
+      price_per_call: 5,
+      webhook_url: "not-a-url"
+    )
+    assert_not skill.valid?
+    assert_includes skill.errors[:webhook_url], "is invalid"
+  end
+
+  test "should allow nil webhook_url" do
+    skill = Skill.new(
+      name: "No Webhook",
+      author: accounts(:alice),
+      stake_amount: 10,
+      price_per_call: 5,
+      webhook_url: nil
+    )
+    assert skill.valid?
+  end
 end

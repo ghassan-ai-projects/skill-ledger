@@ -1,6 +1,7 @@
 ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "rails/test_help"
+require "webmock/minitest"
 
 module ActiveSupport
   class TestCase
@@ -9,6 +10,9 @@ module ActiveSupport
 
     # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
     fixtures :all
+
+    # Allow real HTTP connections for localhost, block everything else
+    WebMock.disable_net_connect!(allow_localhost: true)
 
     # Returns a Hash of headers including a valid X-API-Key for the given account fixture.
     def headers_with_auth(account, other_headers = {})

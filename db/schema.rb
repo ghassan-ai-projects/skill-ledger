@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_29_110109) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_29_110518) do
   create_table "accounts", force: :cascade do |t|
     t.string "api_key", null: false
     t.decimal "balance", precision: 10, scale: 2, default: "0.0", null: false
@@ -52,6 +52,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_29_110109) do
     t.decimal "price_per_call", precision: 10, scale: 2, default: "0.0", null: false
     t.decimal "stake_amount", precision: 10, scale: 2, default: "0.0", null: false
     t.datetime "updated_at", null: false
+    t.string "webhook_url"
     t.index ["author_id"], name: "index_skills_on_author_id"
   end
 

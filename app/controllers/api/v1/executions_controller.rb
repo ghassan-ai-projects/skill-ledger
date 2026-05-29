@@ -41,6 +41,8 @@ module Api
           timestamp: Time.current
         )
 
+        ExecutionWebhookJob.perform_later(execution.id)
+
         render json: execution, status: :created
       end
 
@@ -76,6 +78,8 @@ module Api
 
           execution.update!(status: "failed")
         end
+
+        ExecutionWebhookJob.perform_later(execution.id)
 
         render json: execution, status: :ok
       end

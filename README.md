@@ -439,6 +439,75 @@ curl -s http://localhost:3000/api/v1/reports | jq
 
 ---
 
+## Webhooks
+
+Skills can notify external services when an execution completes or fails via a webhook URL.
+
+### Setting a webhook URL
+
+Set `webhook_url` on a skill when creating or updating it. Only `https://` URLs are accepted.
+
+```bash
+curl -s -X POST http://localhost:3000/api/v1/skills \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{
+    "skill": {
+      "name": "Webhook Skill",
+      "description": "A skill with webhook",
+      "author_id": 1,
+      "price_per_call": 10.00,
+      "stake_amount": 50.00,
+      "webhook_url": "https://example.com/webhooks/skill-ledger"
+    }
+  }' | jq
+```
+
+### Payload schema
+
+When an execution completes or fails, a POST request is sent to the `webhook_url` with the following JSON body:
+
+```json
+{
+  "event": "execution.completed",
+  "execution": {
+    "id": 1,
+    "skill_id": 1,
+    "skill_name": "Data Analysis",
+    "buyer_id": 2,
+    "status": "completed",
+    "result": null,
+    "timestamp": "2026-05-29T12:00:00.000Z"
+  },
+  "skill": {
+    "id": 1,
+    "name": "Data Analysis",
+    "author_id": 1
+  }
+}
+```
+
+The `event` field is either `execution.completed` or `execution.failed`.
+
+### Retry behavior
+
+| Scenario | Behavior |
+|----------|----------|
+| Timeout (5s connect + 5s read) | Retries up to 3 times with exponential backoff |
+| 5xx Server Error | Retries up to 3 times with exponential backoff |
+| 4xx Client Error | Discarded immediately — logged, not retried |
+| 2xx Success | Acknowledged, no further action |
+
+### Signature verification
+
+Webhook consumers should verify that incoming requests originate from SkillLedger. Recommended approach:
+
+1. Generate a shared secret (e.g., via `SecureRandom.hex(32)`).
+2. Include it as a query parameter or custom header when setting `webhook_url`.
+3. On the consumer side, validate the shared secret matches.
+
+---
+
 ## Error Responses
 
 All errors follow a consistent JSON shape:
