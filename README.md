@@ -437,6 +437,99 @@ curl -s http://localhost:3000/api/v1/reports | jq
 | `total_slashed` | Total credits slashed from failed executions |
 | `total_ledger_balance` | Sum of all account balances |
 
+### Analytics
+
+#### `GET /api/v1/authors/:id/analytics` — Author analytics dashboard
+
+Returns comprehensive analytics for an author, including earnings, execution stats, and ratings.
+Only the author can access their own analytics.
+
+Supports `?period=` parameter: `all`, `last_7_days`, `last_30_days`, `last_90_days`, `this_year`.
+
+```bash
+curl -s http://localhost:3000/api/v1/authors/1/analytics \
+  -H "X-API-Key: YOUR_API_KEY" | jq
+```
+
+**Response `200 OK`:**
+```json
+{
+  "author": { "id": 1, "name": "Alice" },
+  "total_skills": 2,
+  "total_executions": 5,
+  "total_earnings": 250.0,
+  "total_slashed": 100.0,
+  "average_rating": 4.5,
+  "execution_breakdown": { "completed": 4, "failed": 1, "pending": 0 },
+  "top_skills": [
+    {
+      "id": 1,
+      "name": "Data Analysis",
+      "execution_count": 3,
+      "total_revenue": 150.0,
+      "average_rating": 4.5
+    }
+  ],
+  "recent_executions": [
+    {
+      "id": 5,
+      "skill_name": "Data Analysis",
+      "buyer_name": "Bob",
+      "status": "completed",
+      "amount": 50.0,
+      "timestamp": "2026-05-29T12:00:00.000Z"
+    }
+  ]
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `author` | Author id and name |
+| `total_skills` | Number of skills authored |
+| `total_executions` | Total executions across all skills |
+| `total_earnings` | Sum of price_per_call for completed executions |
+| `total_slashed` | Sum of slash ledger entries |
+| `average_rating` | Average rating across all reviews |
+| `execution_breakdown` | Counts of completed, failed, pending executions |
+| `top_skills` | Top 5 skills by execution count |
+| `recent_executions` | Last 10 executions with details |
+
+**Error `403 Forbidden`** — accessing another author's analytics:
+```json
+{ "error": "You can only access your own analytics", "details": [] }
+```
+
+**Error `404 Not Found`** — author not found:
+```json
+{
+  "error": "Couldn't find Account with 'id'=99999",
+  "details": []
+}
+```
+
+#### `GET /api/v1/authors/:id/earnings` — Daily earnings breakdown
+
+Returns a daily breakdown of earnings with totals and best-performing skill.
+
+```bash
+curl -s http://localhost:3000/api/v1/authors/1/earnings \
+  -H "X-API-Key: YOUR_API_KEY" | jq
+```
+
+**Response `200 OK`:**
+```json
+{
+  "earnings_over_time": [
+    { "date": "2026-05-28", "amount": 100.0, "execution_count": 2 },
+    { "date": "2026-05-29", "amount": 50.0, "execution_count": 1 }
+  ],
+  "total_earnings": 150.0,
+  "average_per_day": 75.0,
+  "best_skill": { "name": "Data Analysis", "revenue": 150.0 }
+}
+```
+
 ---
 
 ## Webhooks

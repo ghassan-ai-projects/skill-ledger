@@ -21,6 +21,13 @@ Rails.application.routes.draw do
       resources :ledger, only: %i[index], controller: "ledger_entries"
 
       get "reports", to: "reports#index"
+
+      resources :authors, only: [] do
+        member do
+          get :analytics, to: "analytics#show"
+          get :earnings, to: "analytics#earnings"
+        end
+      end
     end
   end
 end
