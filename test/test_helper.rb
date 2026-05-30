@@ -1,4 +1,15 @@
 ENV["RAILS_ENV"] ||= "test"
+
+if ENV["CI"]
+  require "simplecov"
+  SimpleCov.start "rails" do
+    add_filter "/bin/"
+    add_filter "/db/"
+    add_filter "/test/"
+    add_filter "/config/"
+  end
+end
+
 require_relative "../config/environment"
 require "rails/test_help"
 require "webmock/minitest"

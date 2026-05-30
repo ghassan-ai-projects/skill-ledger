@@ -3,43 +3,15 @@ module Api
     class ReviewsController < BaseController
       # POST /api/v1/executions/:id/review
       def create
-        execution = Execution.find(params[:id])
-
-        # Verify buyer is the current account
-        unless execution.buyer_id == @current_account.id
-          return render json: { error: "Only the buyer can review this execution", details: [] },
-                        status: :forbidden
-        end
-
-        # Verify execution is completed
-        unless execution.status == "completed"
-          return render json: { error: "Can only review completed executions", details: [] },
-                        status: :unprocessable_entity
-        end
-
-        # Verify not reviewing your own skill
-        if execution.skill.author_id == @current_account.id
-          return render json: { error: "Cannot review your own skill", details: [] },
-                        status: :unprocessable_entity
-        end
-
-        # Check duplicate review
-        if execution.review.present?
-          return render json: { error: "Execution already has a review", details: [] },
-                        status: :unprocessable_entity
-        end
-
-        review = execution.build_review(
+        review = ReviewService.new(@current_account).create(
+          execution_id: params[:id],
           rating: review_params[:rating],
           review_text: review_params[:review_text]
         )
-
-        if review.save
-          render json: format_review(review), status: :created
-        else
-          render json: { error: review.errors.full_messages.to_sentence, details: review.errors.full_messages },
-                 status: :unprocessable_entity
-        end
+        render json: format_review(review), status: :created
+      rescue ReviewService::Error => e
+        status = e.message.include?("Only the buyer") ? :forbidden : :unprocessable_entity
+        render json: { error: e.message, details: [] }, status: status
       end
 
       # GET /api/v1/skills/:id/reviews

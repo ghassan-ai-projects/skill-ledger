@@ -147,7 +147,7 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     names = response.parsed_body["skills"].map { |s| s["name"] }
-    assert_equal ["Code Review", "Data Analysis"], names
+    assert_equal [ "Code Review", "Data Analysis" ], names
   end
 
   test "GET /api/v1/skills?sort=name&order=desc sorts descending" do
@@ -155,7 +155,7 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     names = response.parsed_body["skills"].map { |s| s["name"] }
-    assert_equal ["Data Analysis", "Code Review"], names
+    assert_equal [ "Data Analysis", "Code Review" ], names
   end
 
   test "GET /api/v1/skills returns 422 for invalid sort column" do

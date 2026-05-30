@@ -1,0 +1,946 @@
+openapi: "3.0.3"
+info:
+  title: Skill Ledger API
+  description: |
+    Agent-to-agent skill publishing, discovery, purchase, and verified execution platform.
+    This API allows agents to create skills, buy executions, review results, manage favorites,
+    and access analytics.
+  version: "1.0.0"
+  contact:
+    name: Skill Ledger Team
+    url: https://github.com/ghassan-ai-projects/skill-ledger
+
+servers:
+  - url: http://localhost:3000
+    description: Development server
+  - url: https://skill-ledger.example.com
+    description: Production server
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /api/v1/skills:
+    get:
+      summary: List skills
+      description: Returns a paginated list of skills with search, filter, and sort capabilities
+      tags: [Skills]
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Search keyword (matches name or description)
+        - name: author_id
+          in: query
+          schema:
+            type: integer
+          description: Filter by author ID
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [price_per_call, stake_amount, name, created_at]
+          description: Sort column
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+          description: Sort order
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Items per page
+      responses:
+        "200":
+          description: Skills list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  skills:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Skill"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      summary: Create a skill
+      description: Creates a new skill. Validates author exists and has sufficient balance for stake.
+      tags: [Skills]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [skill]
+              properties:
+                skill:
+                  type: object
+                  required: [name, author_id, price_per_call, stake_amount]
+                  properties:
+                    name:
+                      type: string
+                      description: Skill name
+                    description:
+                      type: string
+                      description: Skill description
+                    author_id:
+                      type: integer
+                      description: Account ID of the author
+                    price_per_call:
+                      type: number
+                      format: decimal
+                      description: Price per execution call
+                    stake_amount:
+                      type: number
+                      format: decimal
+                      description: Stake amount (must be <= author balance)
+      responses:
+        "201":
+          description: Skill created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Skill"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: Validation error (author not found, insufficient balance, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/skills/{id}:
+    get:
+      summary: Get a skill
+      description: Returns a single skill by ID, including author details, ratings, and favorites info
+      tags: [Skills]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Skill details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/skills/{id}/reviews:
+    get:
+      summary: List reviews for a skill
+      description: Returns paginated reviews for a specific skill
+      tags: [Reviews]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Skill ID
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Reviews list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reviews:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Review"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/skills/{skill_id}/execute:
+    post:
+      summary: Execute a skill
+      description: Executes a skill purchase. Transfers funds from buyer to author and creates an execution record.
+      tags: [Executions]
+      parameters:
+        - name: skill_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [buyer_id]
+              properties:
+                buyer_id:
+                  type: integer
+                  description: Account ID of the buyer
+      responses:
+        "201":
+          description: Execution created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Execution"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/executions:
+    get:
+      summary: List executions
+      description: Returns a paginated list of executions with filter by skill
+      tags: [Executions]
+      parameters:
+        - name: skill_id
+          in: query
+          schema:
+            type: integer
+          description: Filter by skill ID
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Executions list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  executions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Execution"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/executions/{id}/fail:
+    patch:
+      summary: Fail an execution
+      description: Marks an execution as failed. Slashes the author's stake and refunds the buyer.
+      tags: [Executions]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Execution failed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Execution"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: Validation error (already failed, insufficient balance)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/executions/{id}/review:
+    post:
+      summary: Review an execution
+      description: Creates a review for a completed execution. Only the buyer can review.
+      tags: [Reviews]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Execution ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rating]
+              properties:
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  description: Rating (1-5)
+                review_text:
+                  type: string
+                  maxLength: 1000
+                  description: Optional review text
+      responses:
+        "201":
+          description: Review created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Forbidden (not the buyer)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/ledger:
+    get:
+      summary: List ledger entries
+      description: Returns paginated ledger entries tracking all financial transfers
+      tags: [Ledger]
+      parameters:
+        - name: account_id
+          in: query
+          schema:
+            type: integer
+          description: Filter by account ID (matches from or to)
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Ledger entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ledger_entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LedgerEntry"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/favorites:
+    get:
+      summary: List favorites
+      description: Returns paginated list of skills the current account has favorited
+      tags: [Favorites]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Favorites list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  favorites:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Skill"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      summary: Add favorite
+      description: Adds a skill to the current account's favorites
+      tags: [Favorites]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [skill_id]
+              properties:
+                skill_id:
+                  type: integer
+      responses:
+        "201":
+          description: Favorite added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  favorite_id:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+
+  /api/v1/favorites/{skill_id}:
+    delete:
+      summary: Remove favorite
+      description: Removes a skill from the current account's favorites
+      tags: [Favorites]
+      parameters:
+        - name: skill_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Favorite removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/reports:
+    get:
+      summary: System reports
+      description: Returns aggregate system-wide statistics
+      tags: [Reports]
+      responses:
+        "200":
+          description: System stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemReport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/authors/{id}/analytics:
+    get:
+      summary: Author analytics
+      description: Returns comprehensive analytics for an author (self-access only)
+      tags: [Analytics]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [all, last_7_days, last_30_days, last_90_days, this_year]
+            default: all
+      responses:
+        "200":
+          description: Analytics data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorAnalytics"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/authors/{id}/earnings:
+    get:
+      summary: Author earnings breakdown
+      description: Returns daily earnings breakdown for an author (self-access only)
+      tags: [Analytics]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [all, last_7_days, last_30_days, last_90_days, this_year]
+            default: all
+      responses:
+        "200":
+          description: Earnings data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorEarnings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/me/library:
+    get:
+      summary: Personal library
+      description: Returns the current account's library showing favorites, purchased skills, and authored skills
+      tags: [Library]
+      responses:
+        "200":
+          description: Library data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Library"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication. Obtain one from your account.
+
+  schemas:
+    Error:
+      type: object
+      required: [error, details]
+      properties:
+        error:
+          type: string
+          description: Error message
+        details:
+          type: array
+          items:
+            type: string
+          description: Detailed error messages
+
+    PaginationMeta:
+      type: object
+      properties:
+        current_page:
+          type: integer
+        total_pages:
+          type: integer
+        total_count:
+          type: integer
+        per_page:
+          type: integer
+
+    Author:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+
+    Skill:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        author_id:
+          type: integer
+        stake_amount:
+          type: string
+        price_per_call:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        author:
+          $ref: "#/components/schemas/Author"
+        average_rating:
+          type: number
+          nullable: true
+        review_count:
+          type: integer
+        favorite_count:
+          type: integer
+        is_favorited:
+          type: boolean
+
+    SkillDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        author_id:
+          type: integer
+        stake_amount:
+          type: string
+        price_per_call:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        author:
+          $ref: "#/components/schemas/Author"
+        average_rating:
+          type: number
+          nullable: true
+        review_count:
+          type: integer
+        favorite_count:
+          type: integer
+        is_favorited:
+          type: boolean
+
+    Execution:
+      type: object
+      properties:
+        id:
+          type: integer
+        skill_id:
+          type: integer
+        buyer_id:
+          type: integer
+        status:
+          type: string
+          enum: [pending, completed, failed]
+        result:
+          type: string
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        skill:
+          $ref: "#/components/schemas/SkillBrief"
+        buyer:
+          $ref: "#/components/schemas/Author"
+
+    SkillBrief:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+
+    Review:
+      type: object
+      properties:
+        id:
+          type: integer
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        review_text:
+          type: string
+          nullable: true
+        buyer_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    LedgerEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        from_account_id:
+          type: integer
+        to_account_id:
+          type: integer
+        amount:
+          type: string
+        entry_type:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        from_account:
+          $ref: "#/components/schemas/Author"
+        to_account:
+          $ref: "#/components/schemas/Author"
+
+    SystemReport:
+      type: object
+      properties:
+        total_skills:
+          type: integer
+        total_executions:
+          type: integer
+        completed_executions:
+          type: integer
+        failed_executions:
+          type: integer
+        total_slashed:
+          type: string
+        total_ledger_balance:
+          type: string
+
+    AuthorAnalytics:
+      type: object
+      properties:
+        author:
+          $ref: "#/components/schemas/Author"
+        total_skills:
+          type: integer
+        total_executions:
+          type: integer
+        total_earnings:
+          type: number
+        total_slashed:
+          type: number
+        average_rating:
+          type: number
+          nullable: true
+        execution_breakdown:
+          type: object
+          properties:
+            completed:
+              type: integer
+            failed:
+              type: integer
+            pending:
+              type: integer
+        top_skills:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              execution_count:
+                type: integer
+              total_revenue:
+                type: number
+              average_rating:
+                type: number
+                nullable: true
+        recent_executions:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              skill_name:
+                type: string
+              buyer_name:
+                type: string
+              status:
+                type: string
+              amount:
+                type: number
+              timestamp:
+                type: string
+                format: date-time
+
+    AuthorEarnings:
+      type: object
+      properties:
+        earnings_over_time:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              amount:
+                type: number
+              execution_count:
+                type: integer
+        total_earnings:
+          type: number
+        average_per_day:
+          type: number
+        best_skill:
+          type: object
+          nullable: true
+          properties:
+            name:
+              type: string
+            revenue:
+              type: number
+
+    Library:
+      type: object
+      properties:
+        favorites:
+          type: array
+          items:
+            $ref: "#/components/schemas/SkillLite"
+        purchased:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/SkillLite"
+              - type: object
+                properties:
+                  last_execution_timestamp:
+                    type: string
+                    format: date-time
+                    nullable: true
+        my_skills:
+          type: array
+          items:
+            $ref: "#/components/schemas/SkillLite"
+
+    SkillLite:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        author_id:
+          type: integer
+        stake_amount:
+          type: string
+        price_per_call:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        author:
+          $ref: "#/components/schemas/Author"
+        average_rating:
+          type: number
+          nullable: true
+        review_count:
+          type: integer
+        favorite_count:
+          type: integer
+        is_favorited:
+          type: boolean
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unprocessable:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Access denied
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"

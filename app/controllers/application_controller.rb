@@ -24,7 +24,7 @@ class ApplicationController < ActionController::API
   def parameter_missing(exception)
     render json: {
       error: "Missing required parameter",
-      details: [exception.message]
+      details: [ exception.message ]
     }, status: :bad_request
   end
 end

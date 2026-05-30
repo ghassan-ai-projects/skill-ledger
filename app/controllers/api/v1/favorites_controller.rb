@@ -3,33 +3,18 @@ module Api
     class FavoritesController < BaseController
       # POST /api/v1/favorites
       def create
-        skill = Skill.find(favorite_params[:skill_id])
-
-        if Favorite.exists?(account: @current_account, skill: skill)
-          return render json: { error: "Skill is already in your favorites", details: [] },
-                        status: :unprocessable_entity
-        end
-
-        favorite = @current_account.favorites.build(skill: skill)
-
-        if favorite.save
-          render json: { message: "Skill added to favorites", favorite_id: favorite.id }, status: :created
-        else
-          render json: { error: favorite.errors.full_messages.to_sentence, details: favorite.errors.full_messages },
-                 status: :unprocessable_entity
-        end
+        favorite = FavoriteService.new(@current_account).create(skill_id: favorite_params[:skill_id])
+        render json: { message: "Skill added to favorites", favorite_id: favorite.id }, status: :created
+      rescue FavoriteService::Error => e
+        render json: { error: e.message, details: [] }, status: :unprocessable_entity
       end
 
       # DELETE /api/v1/favorites/:skill_id
       def destroy
-        favorite = @current_account.favorites.find_by(skill_id: params[:id])
-
-        unless favorite
-          return render json: { error: "Favorite not found", details: [] }, status: :not_found
-        end
-
-        favorite.destroy
+        FavoriteService.new(@current_account).destroy(skill_id: params[:id])
         head :no_content
+      rescue FavoriteService::Error => e
+        render json: { error: e.message, details: [] }, status: :not_found
       end
 
       # GET /api/v1/favorites
@@ -56,7 +41,7 @@ module Api
         skill.as_json(
           only: %i[id name description author_id stake_amount price_per_call created_at updated_at],
           include: { author: { only: %i[id name] } },
-          methods: [:average_rating, :review_count]
+          methods: [ :average_rating, :review_count ]
         ).merge(
           "favorite_count" => skill.favorite_count,
           "is_favorited" => true

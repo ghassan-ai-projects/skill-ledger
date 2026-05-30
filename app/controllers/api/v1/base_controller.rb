@@ -18,9 +18,9 @@ module Api
       end
 
       def paginate(collection, default_per_page: DEFAULT_PER_PAGE)
-        per_page = [params[:per_page]&.to_i || default_per_page, MAX_PER_PAGE].min
+        per_page = [ params[:per_page]&.to_i || default_per_page, MAX_PER_PAGE ].min
         per_page = 1 if per_page < 1
-        page = [params[:page]&.to_i || 1, 1].max
+        page = [ params[:page]&.to_i || 1, 1 ].max
 
         total_count = collection.count
         total_pages = (total_count.to_f / per_page).ceil

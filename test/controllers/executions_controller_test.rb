@@ -46,7 +46,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "POST /api/v1/skills/:id/execute returns error when buyer not found" do
-    assert_no_difference(["Execution.count", "LedgerEntry.count"]) do
+    assert_no_difference([ "Execution.count", "LedgerEntry.count" ]) do
       post api_v1_execute_skill_url(@data_analysis),
            params: { buyer_id: 99999 },
            headers: headers_with_auth(@alice), as: :json
@@ -63,7 +63,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
       stake_amount: 10.00
     )
 
-    assert_no_difference(["Execution.count", "LedgerEntry.count"]) do
+    assert_no_difference([ "Execution.count", "LedgerEntry.count" ]) do
       post api_v1_execute_skill_url(expensive_skill),
            params: { buyer_id: @charlie.id },
            headers: headers_with_auth(@alice), as: :json
@@ -73,7 +73,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "POST /api/v1/skills/:id/execute returns error when buyer is the author" do
-    assert_no_difference(["Execution.count", "LedgerEntry.count"]) do
+    assert_no_difference([ "Execution.count", "LedgerEntry.count" ]) do
       post api_v1_execute_skill_url(@data_analysis),
            params: { buyer_id: @alice.id },
            headers: headers_with_auth(@alice), as: :json
@@ -83,7 +83,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "POST /api/v1/skills/:id/execute returns 404 for missing skill" do
-    assert_no_difference(["Execution.count", "LedgerEntry.count"]) do
+    assert_no_difference([ "Execution.count", "LedgerEntry.count" ]) do
       post api_v1_execute_skill_url(skill_id: 99999),
            params: { buyer_id: @charlie.id },
            headers: headers_with_auth(@alice), as: :json
@@ -121,7 +121,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
 
     exec = response.parsed_body["executions"].first
     assert_not_nil exec["skill"]
-    assert [@data_analysis.id, @code_review.id].include?(exec["skill"]["id"])
+    assert [ @data_analysis.id, @code_review.id ].include?(exec["skill"]["id"])
     assert_not_nil exec["buyer"]
   end
 
@@ -215,7 +215,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "fail returns 404 for missing execution" do
-    assert_no_difference(["LedgerEntry.count", "Execution.where(status: 'failed').count"]) do
+    assert_no_difference([ "LedgerEntry.count", "Execution.where(status: 'failed').count" ]) do
       patch fail_api_v1_execution_url(id: 99999), headers: headers_with_auth(@alice)
     end
     assert_response :not_found
@@ -226,7 +226,7 @@ class Api::V1::ExecutionsControllerTest < ActionDispatch::IntegrationTest
   test "fail returns error when author has insufficient balance" do
     @alice.update!(balance: 0)
 
-    assert_no_difference(["LedgerEntry.count", "Execution.where(status: 'failed').count"]) do
+    assert_no_difference([ "LedgerEntry.count", "Execution.where(status: 'failed').count" ]) do
       patch fail_api_v1_execution_url(@execution), headers: headers_with_auth(@alice)
     end
     assert_response :unprocessable_entity

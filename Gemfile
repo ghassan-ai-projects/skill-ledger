@@ -48,4 +48,11 @@ gem "debug", platforms: %i[ mri ], require: "debug/prelude"
 
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
+
+  # Code coverage
+  gem "simplecov", require: false
 end
+
+# OpenAPI / Swagger documentation
+gem "rswag-api"
+gem "rswag-ui"
