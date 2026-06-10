@@ -7,14 +7,14 @@ class SkillAcquisitionServiceTest < ActiveSupport::TestCase
       name: "Deterministic Pricing Review",
       slug: "deterministic-pricing-review",
       author: accounts(:alice),
-      price_per_call: 35,
+      price: 35,
       description: "Review a pricing payload for deterministic rule violations."
     )
     @service = SkillAcquisitionService.new(buyer: @buyer)
     @purchase = Purchase.create!(
       buyer: @buyer,
       skill_version: @pricing_skill[:version],
-      amount: @pricing_skill[:skill].price_per_call,
+      amount: @pricing_skill[:skill].price,
       status: "paid"
     )
   end
@@ -43,7 +43,7 @@ class SkillAcquisitionServiceTest < ActiveSupport::TestCase
     other_purchase = Purchase.create!(
       buyer: accounts(:bob),
       skill_version: @pricing_skill[:version],
-      amount: @pricing_skill[:skill].price_per_call,
+      amount: @pricing_skill[:skill].price,
       status: "paid"
     )
 
@@ -52,8 +52,8 @@ class SkillAcquisitionServiceTest < ActiveSupport::TestCase
     end
   end
 
-  test "does not create ledger entries or executions while acquiring" do
-    assert_no_difference([ "LedgerEntry.count", "Execution.count" ]) do
+  test "does not create ledger entries while acquiring" do
+    assert_no_difference("LedgerEntry.count") do
       @service.call(purchase_id: @purchase.id)
     end
   end

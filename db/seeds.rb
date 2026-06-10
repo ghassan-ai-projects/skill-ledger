@@ -31,51 +31,25 @@ puts "  - Account: #{eve.name} (#{eve.balance} credits) — API Key: #{eve.api_k
 # ---------------------------------------------------------------------------
 # Skills
 # ---------------------------------------------------------------------------
-data_analysis = Skill.find_or_create_by!(name: "Data Analysis") do |s|
-  s.description = "Analyze datasets, identify patterns, and generate comprehensive reports with visualizations."
-  s.author = alice
-  s.stake_amount = 200.00
-  s.price_per_call = 50.00
-  s.webhook_url = ENV["DATA_ANALYSIS_WEBHOOK_URL"]
-end
-puts "  - Skill: #{data_analysis.name} (by #{data_analysis.author.name}, #{data_analysis.price_per_call} credits/call)#{data_analysis.webhook_url ? " — webhook: #{data_analysis.webhook_url}" : ""}"
+data_analysis = Skill.find_or_initialize_by(name: "Data Analysis")
+data_analysis.update!(
+  description: "Analyze datasets, identify patterns, and generate comprehensive reports with visualizations.",
+  author: alice,
+  slug: "data-analysis",
+  price: 50.00,
+  listing_status: "listed"
+)
+puts "  - Skill: #{data_analysis.name} (by #{data_analysis.author.name}, #{data_analysis.price} credits)"
 
-code_review = Skill.find_or_create_by!(name: "Code Review") do |s|
-  s.description = "Review pull requests for bugs, security vulnerabilities, and adherence to best practices."
-  s.author = bob
-  s.stake_amount = 150.00
-  s.price_per_call = 35.00
-  s.webhook_url = ENV["CODE_REVIEW_WEBHOOK_URL"]
-end
-puts "  - Skill: #{code_review.name} (by #{code_review.author.name}, #{code_review.price_per_call} credits/call)#{code_review.webhook_url ? " — webhook: #{code_review.webhook_url}" : ""}"
-
-# ---------------------------------------------------------------------------
-# Demo Executions (for reviews)
-# ---------------------------------------------------------------------------
-exec1 = Execution.find_or_create_by!(skill: data_analysis, buyer: bob) do |e|
-  e.status = "completed"
-  e.timestamp = Time.current
-end
-puts "  - Execution: #{exec1.id} — #{exec1.buyer.name} bought #{exec1.skill.name} (completed)"
-
-exec2 = Execution.find_or_create_by!(skill: code_review, buyer: charlie) do |e|
-  e.status = "completed"
-  e.timestamp = Time.current
-end
-puts "  - Execution: #{exec2.id} — #{exec2.buyer.name} bought #{exec2.skill.name} (completed)"
-
-# ---------------------------------------------------------------------------
-# Demo Reviews
-# ---------------------------------------------------------------------------
-unless exec1.review.present?
-  Review.create!(execution: exec1, rating: 4, review_text: "Great analysis, very thorough!")
-  puts "  - Review: Bob rated Data Analysis 4/5"
-end
-
-unless exec2.review.present?
-  Review.create!(execution: exec2, rating: 5, review_text: "Excellent code review with detailed suggestions.")
-  puts "  - Review: Charlie rated Code Review 5/5"
-end
+code_review = Skill.find_or_initialize_by(name: "Code Review")
+code_review.update!(
+  description: "Review pull requests for bugs, security vulnerabilities, and adherence to best practices.",
+  author: bob,
+  slug: "code-review",
+  price: 35.00,
+  listing_status: "listed"
+)
+puts "  - Skill: #{code_review.name} (by #{code_review.author.name}, #{code_review.price} credits)"
 
 # ---------------------------------------------------------------------------
 # Demo Favorites
@@ -85,5 +59,37 @@ puts "  - Favorite: Bob favorited Data Analysis"
 
 Favorite.find_or_create_by!(account: charlie, skill: code_review)
 puts "  - Favorite: Charlie favorited Code Review"
+
+# ---------------------------------------------------------------------------
+# Demo Verified Version And Purchase
+# ---------------------------------------------------------------------------
+data_analysis_v1 = SkillVersion.find_or_initialize_by(skill: data_analysis, version: "1.0.0")
+data_analysis_v1.status = "draft"
+data_analysis_v1.save!
+
+manifest = {
+  "name" => "data-analysis",
+  "description" => data_analysis.description,
+  "version" => "1.0.0",
+  "runtime" => "client",
+  "entrypoint" => "data_analysis.execute",
+  "input_schema" => { "type" => "object" },
+  "output_schema" => { "type" => "object" }
+}
+
+artifact = SkillArtifact.find_or_initialize_by(skill_version: data_analysis_v1)
+artifact.update!(
+  artifact_type: "mcp_tool_manifest",
+  manifest: manifest,
+  checksum: SkillArtifactVerificationService.checksum_for_manifest(manifest)
+)
+
+SkillArtifactVerificationService.new(skill_version: data_analysis_v1).call
+
+bob_purchase = Purchase.find_or_initialize_by(buyer: bob, skill_version: data_analysis_v1, status: "paid")
+bob_purchase.amount ||= data_analysis.price
+bob_purchase.acquired_at ||= Time.current
+bob_purchase.save!
+puts "  - Purchase: #{bob.name} acquired #{data_analysis.name} v#{data_analysis_v1.version}"
 
 puts "Seeding complete!"

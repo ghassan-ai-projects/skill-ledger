@@ -64,10 +64,6 @@ Current acquisition methods:
 - `skills/purchase`
 - `skills/acquire`
 
-Current transitional legacy methods:
-- `tools/list`
-- `tools/call`
-
 ## What The Product Does Not Do
 
 Not implemented:
@@ -101,4 +97,3 @@ The product is now useful for a narrow but real workflow:
 - dispute/report flow
 - reputation/accountability workflow beyond auditable purchase history
 - deprecation plan for hosted execution
-- pricing rename away from `price_per_call`

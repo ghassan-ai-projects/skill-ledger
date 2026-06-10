@@ -9,7 +9,7 @@ class SkillPurchaseServiceTest < ActiveSupport::TestCase
       name: "Deterministic Pricing Review",
       slug: "deterministic-pricing-review",
       author: @author,
-      price_per_call: 35,
+      price: 35,
       description: "Review a pricing payload for deterministic rule violations."
     )
   end
@@ -65,8 +65,7 @@ class SkillPurchaseServiceTest < ActiveSupport::TestCase
     expensive_skill = Skill.create!(
       name: "Premium Verification Skill",
       author: @author,
-      stake_amount: 10,
-      price_per_call: 999,
+      price: 999,
       listing_status: "listed"
     )
     expensive_version = SkillVersion.create!(skill: expensive_skill, version: "1.0.0", status: "verified")

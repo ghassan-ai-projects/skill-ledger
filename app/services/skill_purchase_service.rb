@@ -20,7 +20,7 @@ class SkillPurchaseService
       return existing_purchase if existing_purchase
 
       author = skill.author
-      amount = skill.price_per_call
+      amount = skill.price
 
       raise Error, "Buyer has insufficient balance" if @buyer.reload.balance < amount
 

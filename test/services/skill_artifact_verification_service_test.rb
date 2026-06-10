@@ -5,8 +5,7 @@ class SkillArtifactVerificationServiceTest < ActiveSupport::TestCase
     skill = Skill.create!(
       name: "Verification Skill #{SecureRandom.hex(4)}",
       author: accounts(:alice),
-      stake_amount: 10,
-      price_per_call: 5,
+      price: 5,
       listing_status: "listed"
     )
 

@@ -1,5 +1,14 @@
 # SkillLedger Roadmap
 
+## Status Note
+
+This file contains the older phase-by-phase hosted-execution roadmap history.
+
+For the current acquisition refactor state, use:
+- [Implementation Tracker](./implementation-tracker.md)
+- [Refactor Plan — Client-Side Skill Acquisition Model](./refactor-plan-client-side-acquisition.md)
+- [Detailed Refactor Execution Plan](./detailed-refactor-execution-plan.md)
+
 ## Completed Phases
 
 | Phase | Description | Status | Git Commits |

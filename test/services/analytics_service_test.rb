@@ -18,9 +18,9 @@ class AnalyticsServiceTest < ActiveSupport::TestCase
     assert_equal @alice.id, result[:author][:id]
     assert_equal "Alice", result[:author][:name]
     assert result.key?(:total_skills)
-    assert result.key?(:total_executions)
-    assert result.key?(:total_earnings)
-    assert result.key?(:execution_breakdown)
+    assert result.key?(:total_purchases)
+    assert result.key?(:total_revenue)
+    assert result.key?(:recent_purchases)
   end
 
   test "raises forbidden for another account's analytics" do
@@ -37,39 +37,28 @@ class AnalyticsServiceTest < ActiveSupport::TestCase
     end
   end
 
-  test "includes execution_breakdown" do
-    service = AnalyticsService.new(@alice)
-    result = service.show(author_id: @alice.id)
-
-    assert_kind_of Hash, result[:execution_breakdown]
-    assert result[:execution_breakdown].key?(:completed)
-    assert result[:execution_breakdown].key?(:failed)
-    assert result[:execution_breakdown].key?(:pending)
-  end
-
   test "includes top_skills" do
     service = AnalyticsService.new(@alice)
     result = service.show(author_id: @alice.id)
 
     assert_kind_of Array, result[:top_skills]
-    assert result[:top_skills].all? { |s| s.key?(:execution_count) }
+    assert result[:top_skills].all? { |s| s.key?(:purchase_count) }
   end
 
-  test "includes recent_executions" do
+  test "includes recent_purchases" do
     service = AnalyticsService.new(@alice)
     result = service.show(author_id: @alice.id)
 
-    assert_kind_of Array, result[:recent_executions]
+    assert_kind_of Array, result[:recent_purchases]
   end
 
-  test "returns zeros for author with no executions" do
+  test "returns zeros for author with no purchases" do
     service = AnalyticsService.new(@charlie)
     result = service.show(author_id: @charlie.id)
 
     assert_equal 0, result[:total_skills]
-    assert_equal 0, result[:total_executions]
-    assert_equal 0, result[:total_earnings]
-    assert_equal 0.0, result[:total_slashed]
+    assert_equal 0, result[:total_purchases]
+    assert_equal 0.0, result[:total_revenue]
   end
 
   # ── Earnings ───────────────────────────────────────────────────

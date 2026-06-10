@@ -36,7 +36,7 @@ The current API still reflects hosted-execution assumptions in several places. T
 
 ## MCP Direction
 
-Current MCP should eventually evolve from generic `tools/list` and `tools/call` into protocol messages more directly aligned to skill acquisition.
+Current MCP is already aligned to skill acquisition and should evolve deeper in that direction rather than reintroducing generic hosted-execution tool calls.
 
 ### Preferred MCP Methods
 

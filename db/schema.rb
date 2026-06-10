@@ -10,28 +10,14 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_10_110000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_10_133000) do
   create_table "accounts", force: :cascade do |t|
     t.string "api_key", null: false
     t.decimal "balance", precision: 10, scale: 2, default: "0.0", null: false
     t.datetime "created_at", null: false
-    t.decimal "escrow_balance", precision: 10, scale: 2, default: "0.0", null: false
-    t.decimal "locked_stake", precision: 10, scale: 2, default: "0.0", null: false
     t.string "name", null: false
     t.datetime "updated_at", null: false
     t.index ["api_key"], name: "index_accounts_on_api_key", unique: true
-  end
-
-  create_table "executions", force: :cascade do |t|
-    t.integer "buyer_id", null: false
-    t.datetime "created_at", null: false
-    t.text "result"
-    t.integer "skill_id", null: false
-    t.string "status", default: "pending", null: false
-    t.datetime "timestamp", null: false
-    t.datetime "updated_at", null: false
-    t.index ["buyer_id"], name: "index_executions_on_buyer_id"
-    t.index ["skill_id"], name: "index_executions_on_skill_id"
   end
 
   create_table "favorites", force: :cascade do |t|
@@ -70,15 +56,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_10_110000) do
     t.index ["entitlement_token"], name: "index_purchases_on_entitlement_token", unique: true
     t.index ["skill_version_id"], name: "index_purchases_on_skill_version_id"
     t.index ["status"], name: "index_purchases_on_status"
-  end
-
-  create_table "reviews", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.integer "execution_id", null: false
-    t.integer "rating", null: false
-    t.text "review_text"
-    t.datetime "updated_at", null: false
-    t.index ["execution_id"], name: "index_reviews_on_execution_id", unique: true
   end
 
   create_table "skill_artifacts", force: :cascade do |t|
@@ -122,25 +99,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_10_110000) do
     t.text "description"
     t.string "listing_status", default: "draft", null: false
     t.string "name", null: false
-    t.decimal "price_per_call", precision: 10, scale: 2, default: "0.0", null: false
+    t.decimal "price", precision: 10, scale: 2, default: "0.0", null: false
     t.string "slug"
-    t.decimal "stake_amount", precision: 10, scale: 2, default: "0.0", null: false
     t.datetime "updated_at", null: false
-    t.string "webhook_url"
     t.index ["author_id"], name: "index_skills_on_author_id"
     t.index ["listing_status"], name: "index_skills_on_listing_status"
     t.index ["slug"], name: "index_skills_on_slug", unique: true
   end
 
-  add_foreign_key "executions", "accounts", column: "buyer_id"
-  add_foreign_key "executions", "skills"
   add_foreign_key "favorites", "accounts", on_delete: :cascade
   add_foreign_key "favorites", "skills", on_delete: :cascade
   add_foreign_key "ledger_entries", "accounts", column: "from_account_id"
   add_foreign_key "ledger_entries", "accounts", column: "to_account_id"
   add_foreign_key "purchases", "accounts", column: "buyer_id"
   add_foreign_key "purchases", "skill_versions"
-  add_foreign_key "reviews", "executions"
   add_foreign_key "skill_artifacts", "skill_versions"
   add_foreign_key "skill_verifications", "skill_versions"
   add_foreign_key "skill_versions", "skills"

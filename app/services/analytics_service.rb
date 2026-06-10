@@ -3,7 +3,6 @@ class AnalyticsService
     @current_account = current_account
   end
 
-  # rubocop:disable Metrics/MethodLength, Metrics/AbcSize
   def show(author_id:, period: nil)
     author = Account.find(author_id)
 
@@ -14,24 +13,22 @@ class AnalyticsService
     period_range = parse_period(period)
 
     skills = author.authored_skills
-    executions = Execution.where(skill_id: skills.select(:id))
-    period_executions = executions.where(timestamp: period_range) if period_range
+    skill_versions = SkillVersion.where(skill_id: skills.select(:id))
+    purchases = Purchase.includes(:buyer, skill_version: :skill).where(skill_version_id: skill_versions.select(:id))
+    period_purchases = period_range ? purchases.where(created_at: period_range) : purchases
 
     {
       author: { id: author.id, name: author.name },
       total_skills: skills.count,
-      total_executions: executions.count,
-      total_earnings: calculate_earnings(author, period_range).to_f,
-      total_slashed: calculate_slashed(author, period_range).to_f,
-      average_rating: calculate_avg_rating(author),
-      execution_breakdown: execution_breakdown(period_executions || executions),
-      top_skills: top_skills(author, period_range),
-      recent_executions: recent_executions(author, period_range)
+      listed_skills: skills.where(listing_status: "listed").count,
+      verified_versions: skill_versions.where(status: "verified").count,
+      total_purchases: period_purchases.count,
+      total_revenue: period_purchases.sum(:amount).to_f,
+      top_skills: top_skills(skills, period_purchases),
+      recent_purchases: recent_purchases(period_purchases)
     }
   end
-  # rubocop:enable Metrics/MethodLength, Metrics/AbcSize
 
-  # rubocop:disable Metrics/MethodLength, Metrics/AbcSize
   def earnings(author_id:, period: nil)
     author = Account.find(author_id)
 
@@ -41,17 +38,17 @@ class AnalyticsService
 
     period_range = parse_period(period)
 
-    completed_execs = Execution.where(skill_id: author.authored_skills.select(:id), status: "completed")
-    period_execs = period_range ? completed_execs.where(timestamp: period_range) : completed_execs
+    skill_versions = SkillVersion.where(skill_id: author.authored_skills.select(:id))
+    period_purchases = Purchase.includes(skill_version: :skill).where(skill_version_id: skill_versions.select(:id))
+    period_purchases = period_purchases.where(created_at: period_range) if period_range
 
-    daily_data = period_execs
-      .includes(:skill)
-      .group_by { |e| e.timestamp.to_date }
-      .map { |date, execs|
+    daily_data = period_purchases
+      .group_by { |purchase| purchase.created_at.to_date }
+      .map { |date, purchases|
         {
           date: date.to_s,
-          amount: execs.sum { |e| e.skill.price_per_call.to_f }.round(2),
-          execution_count: execs.size
+          amount: purchases.sum { |purchase| purchase.amount.to_f }.round(2),
+          purchase_count: purchases.size
         }
       }
       .sort_by { |d| d[:date] }
@@ -59,9 +56,9 @@ class AnalyticsService
     total = daily_data.sum { |d| d[:amount] }
     avg = daily_data.size > 0 ? (total / daily_data.size).round(2) : 0.0
 
-    skill_revenue = period_execs
-      .group_by { |e| e.skill }
-      .map { |skill, execs| { name: skill.name, revenue: (execs.size * skill.price_per_call.to_f).round(2) } }
+    skill_revenue = period_purchases
+      .group_by { |purchase| purchase.skill_version.skill }
+      .map { |skill, purchases| { name: skill.name, revenue: purchases.sum { |purchase| purchase.amount.to_f }.round(2) } }
       .max_by { |s| s[:revenue] }
 
     {
@@ -71,7 +68,6 @@ class AnalyticsService
       best_skill: skill_revenue || nil
     }
   end
-  # rubocop:enable Metrics/MethodLength, Metrics/AbcSize
 
   class Forbidden < StandardError; end
 
@@ -94,66 +90,32 @@ class AnalyticsService
   end
   # rubocop:enable Metrics/MethodLength
 
-  def calculate_earnings(author, period)
-    executions = Execution.joins(:skill)
-      .where(skills: { author_id: author.id }, status: "completed")
-    executions = executions.where(timestamp: period) if period
-    executions.sum("skills.price_per_call").to_f
-  end
-
-  def calculate_slashed(author, period)
-    entries = LedgerEntry.where(from_account: author, entry_type: "slash")
-    entries = entries.where(timestamp: period) if period
-    entries.sum(:amount).to_f
-  end
-
-  def calculate_avg_rating(author)
-    skills = author.authored_skills
-    reviews = Review.joins(:execution).where(executions: { skill_id: skills.select(:id) })
-    reviews.average(:rating)&.to_f
-  end
-
-  def execution_breakdown(executions)
-    {
-      completed: executions.where(status: "completed").count,
-      failed: executions.where(status: "failed").count,
-      pending: executions.where(status: "pending").count
-    }
-  end
-
-  # rubocop:disable Metrics/MethodLength, Metrics/AbcSize
-  def top_skills(author, period)
-    author.authored_skills.includes(:executions, :reviews).map { |skill|
-      execs = period ? skill.executions.where(timestamp: period) : skill.executions
-      completed_execs = execs.where(status: "completed")
+  def top_skills(skills, purchases)
+    skills.map { |skill|
+      skill_purchases = purchases.select { |purchase| purchase.skill_version.skill_id == skill.id }
       {
         id: skill.id,
         name: skill.name,
-        execution_count: execs.count,
-        total_revenue: (completed_execs.count * skill.price_per_call.to_f).round(2),
-        average_rating: skill.average_rating
+        purchase_count: skill_purchases.count,
+        total_revenue: skill_purchases.sum { |purchase| purchase.amount.to_f }.round(2)
       }
     }
-      .sort_by { |s| -s[:execution_count] }
+      .sort_by { |s| -s[:purchase_count] }
       .first(5)
   end
-  # rubocop:enable Metrics/MethodLength, Metrics/AbcSize
 
-  # rubocop:disable Metrics/MethodLength, Metrics/AbcSize
-  def recent_executions(author, period)
-    execs = Execution.includes(:skill, :buyer)
-      .where(skill_id: author.authored_skills.select(:id))
-    execs = execs.where(timestamp: period) if period
-    execs.order(timestamp: :desc).limit(10).map { |e|
+  def recent_purchases(purchases)
+    purchases.order(created_at: :desc).limit(10).map { |purchase|
       {
-        id: e.id,
-        skill_name: e.skill.name,
-        buyer_name: e.buyer.name,
-        status: e.status,
-        amount: e.status == "completed" ? e.skill.price_per_call.to_f : 0.0,
-        timestamp: e.timestamp
+        id: purchase.id,
+        skill_name: purchase.skill_version.skill.name,
+        buyer_name: purchase.buyer.name,
+        version: purchase.skill_version.version,
+        status: purchase.status,
+        amount: purchase.amount.to_f,
+        purchased_at: purchase.created_at,
+        acquired_at: purchase.acquired_at
       }
     }
   end
-  # rubocop:enable Metrics/MethodLength, Metrics/AbcSize
 end

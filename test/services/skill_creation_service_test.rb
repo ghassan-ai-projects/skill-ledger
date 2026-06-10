@@ -8,8 +8,7 @@ class SkillCreationServiceTest < ActiveSupport::TestCase
       name: "New Test Skill",
       description: "A test skill",
       author_id: @alice.id,
-      price_per_call: 10.00,
-      stake_amount: 50.00
+      price: 10.00
     }
   end
 
@@ -27,12 +26,6 @@ class SkillCreationServiceTest < ActiveSupport::TestCase
     end
   end
 
-  test "returns error when author has insufficient balance for stake" do
-    assert_raises SkillCreationService::Error, match: "insufficient balance" do
-      SkillCreationService.new(@valid_params.merge(stake_amount: 9999.00, author_id: @bob.id)).call
-    end
-  end
-
   test "returns error when name is missing" do
     assert_raises SkillCreationService::Error do
       SkillCreationService.new(@valid_params.except(:name)).call
@@ -41,7 +34,7 @@ class SkillCreationServiceTest < ActiveSupport::TestCase
 
   test "rejects negative price" do
     assert_raises SkillCreationService::Error do
-      SkillCreationService.new(@valid_params.merge(price_per_call: -10.00)).call
+      SkillCreationService.new(@valid_params.merge(price: -10.00)).call
     end
   end
 end

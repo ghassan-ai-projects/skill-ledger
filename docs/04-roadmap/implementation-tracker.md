@@ -64,15 +64,6 @@ Covered now:
 - `skills/purchase`
 - `skills/acquire`
 
-### Legacy transitional methods still present
-
-- `tools/list`
-- `tools/call`
-
-Reason:
-- they preserve the old hosted-execution path during the refactor
-- they should not be treated as the long-term primary product interface
-
 ## Tests Added
 
 - model tests for new domain objects
@@ -97,7 +88,6 @@ Note:
 ### Product-facing
 
 - remove or fully isolate the hosted-execution story from public documentation
-- decide final naming migration away from `price_per_call` toward acquisition pricing
 - define dispute/report flow before adding accountability claims beyond provenance and auditable purchase history
 
 ### Protocol-facing
@@ -108,7 +98,6 @@ Note:
 
 ### Domain-facing
 
-- decide whether `Execution` should be archived, migrated, or removed in a later phase
 - add explicit state transition guards if status changes become more complex
 
 ## Resume From Here
@@ -116,5 +105,5 @@ Note:
 If work resumes later, start with:
 
 1. remove hosted-execution language from the remaining public docs and API docs
-2. decide whether to deprecate `tools/*` immediately or keep it behind a transitional flag
-3. design the next useful acquisition artifact beyond the manifest-only MVP
+2. design the next useful acquisition artifact beyond the manifest-only MVP
+3. add explicit dispute/report primitives if accountability needs to become enforceable

@@ -5,7 +5,7 @@ class PurchaseTest < ActiveSupport::TestCase
     purchase = Purchase.create!(
       buyer: accounts(:charlie),
       skill_version: skill_versions(:data_analysis_v1),
-      amount: skills(:data_analysis).price_per_call
+      amount: skills(:data_analysis).price
     )
 
     assert purchase.entitlement_token.present?
@@ -26,7 +26,7 @@ class PurchaseTest < ActiveSupport::TestCase
     purchase = Purchase.new(
       buyer: accounts(:charlie),
       skill_version: skill_versions(:data_analysis_v1),
-      amount: skills(:data_analysis).price_per_call,
+      amount: skills(:data_analysis).price,
       status: "other"
     )
 

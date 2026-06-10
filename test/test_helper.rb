@@ -37,14 +37,13 @@ module ActiveSupport
       headers.merge("X-API-Key" => account.api_key)
     end
 
-    def create_verified_skill_listing(name:, slug:, author:, price_per_call:, description:, version: "1.0.0", stake_amount: 10)
+    def create_verified_skill_listing(name:, slug:, author:, price:, description:, version: "1.0.0")
       skill = Skill.create!(
         name: name,
         slug: slug,
         description: description,
         author: author,
-        stake_amount: stake_amount,
-        price_per_call: price_per_call,
+        price: price,
         listing_status: "listed"
       )
 

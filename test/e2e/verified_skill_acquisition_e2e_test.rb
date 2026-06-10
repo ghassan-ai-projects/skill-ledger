@@ -6,7 +6,7 @@ class VerifiedSkillAcquisitionE2ETest < ActionDispatch::IntegrationTest
       name: "Deterministic Pricing Review",
       slug: "deterministic-pricing-review",
       author: accounts(:alice),
-      price_per_call: 35,
+      price: 35,
       description: "Review a pricing payload for deterministic rule violations."
     )
 
@@ -38,19 +38,17 @@ class VerifiedSkillAcquisitionE2ETest < ActionDispatch::IntegrationTest
     assert_equal "1.0.0", verified_skill["latest_version"]["version"]
 
     assert_difference("LedgerEntry.count", 1) do
-      assert_no_difference("Execution.count") do
-        post "/api/v1/mcp",
+      post "/api/v1/mcp",
+           params: {
+             jsonrpc: "2.0",
+             id: "skills-purchase-1",
+             method: "skills/purchase",
              params: {
-               jsonrpc: "2.0",
-               id: "skills-purchase-1",
-               method: "skills/purchase",
-               params: {
-                 skill_id: verified_skill["id"],
-                 version: verified_skill["latest_version"]["version"]
-               }
-             },
-             headers: headers_with_auth(buyer), as: :json
-      end
+               skill_id: verified_skill["id"],
+               version: verified_skill["latest_version"]["version"]
+             }
+           },
+           headers: headers_with_auth(buyer), as: :json
     end
 
     assert_response :success
@@ -67,19 +65,17 @@ class VerifiedSkillAcquisitionE2ETest < ActionDispatch::IntegrationTest
     purchase_id = purchase_body["result"]["purchase"]["id"]
 
     assert_no_difference("LedgerEntry.count") do
-      assert_no_difference("Execution.count") do
-        post "/api/v1/mcp",
+      post "/api/v1/mcp",
+           params: {
+             jsonrpc: "2.0",
+             id: "skills-purchase-retry-1",
+             method: "skills/purchase",
              params: {
-               jsonrpc: "2.0",
-               id: "skills-purchase-retry-1",
-               method: "skills/purchase",
-               params: {
-                 skill_id: verified_skill["id"],
-                 version: verified_skill["latest_version"]["version"]
-               }
-             },
-             headers: headers_with_auth(buyer), as: :json
-      end
+               skill_id: verified_skill["id"],
+               version: verified_skill["latest_version"]["version"]
+             }
+           },
+           headers: headers_with_auth(buyer), as: :json
     end
 
     assert_response :success
@@ -89,18 +85,16 @@ class VerifiedSkillAcquisitionE2ETest < ActionDispatch::IntegrationTest
     assert_equal author_starting_balance + purchase_amount, author.reload.balance
 
     assert_no_difference("LedgerEntry.count") do
-      assert_no_difference("Execution.count") do
-        post "/api/v1/mcp",
+      post "/api/v1/mcp",
+           params: {
+             jsonrpc: "2.0",
+             id: "skills-acquire-1",
+             method: "skills/acquire",
              params: {
-               jsonrpc: "2.0",
-               id: "skills-acquire-1",
-               method: "skills/acquire",
-               params: {
-                 purchase_id: purchase_id
-               }
-             },
-             headers: headers_with_auth(buyer), as: :json
-      end
+               purchase_id: purchase_id
+             }
+           },
+           headers: headers_with_auth(buyer), as: :json
     end
 
     assert_response :success
@@ -127,9 +121,5 @@ class VerifiedSkillAcquisitionE2ETest < ActionDispatch::IntegrationTest
     assert_equal buyer.id, entitlement["buyer_id"]
     assert_equal purchase_id, entitlement["purchase_id"]
 
-    # Contract expectation: local execution belongs to the buyer side.
-    # SkillLedger delivers the verified artifact, not hosted execution output.
-    assert_nil acquire_body["result"]["hosted_execution"]
-    assert_nil acquire_body["result"]["execution"]
   end
 end

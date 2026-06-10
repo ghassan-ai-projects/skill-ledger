@@ -9,9 +9,9 @@ Read these first:
 
 ## Status Note
 
-The current API surface in the repo still includes hosted-execution endpoints.
+The current API surface in the repo is now centered on skill verification, purchase, and acquisition for client-side execution.
 
-Those endpoints describe the current implementation history, not the preferred long-term product model. The target direction is skill verification, purchase, and acquisition for client-side execution.
+Older execution-oriented documents in this repo describe implementation history, not the current product surface.
 
 The SkillLedger API is fully documented in the project root:
 
@@ -32,20 +32,16 @@ The SkillLedger API is fully documented in the project root:
 |--------|------|-------------|
 | GET | `/skills` | List skills (search, filter, sort, paginated) |
 | POST | `/skills` | Create a skill |
-| GET | `/skills/:id` | Get skill details (incl. ratings, favorites) |
-| POST | `/skills/:id/execute` | Execute a skill |
-| GET | `/executions` | List executions |
-| PATCH | `/executions/:id/fail` | Fail an execution (slash + refund) |
-| POST | `/executions/:id/review` | Review a completed execution |
-| GET | `/skills/:id/reviews` | List reviews for a skill |
+| GET | `/skills/:id` | Get skill details |
 | GET | `/ledger` | List all ledger entries |
-| GET | `/reports` | Summary statistics |
+| GET | `/reports` | Marketplace summary statistics |
 | GET | `/favorites` | List favorited skills |
 | POST | `/favorites` | Add skill to favorites |
 | DELETE | `/favorites/:skill_id` | Remove from favorites |
-| GET | `/me/library` | Personal library |
-| GET | `/authors/:id/analytics` | Author analytics dashboard |
+| GET | `/me/library` | Personal acquisition library |
+| GET | `/authors/:id/analytics` | Author purchase analytics dashboard |
 | GET | `/authors/:id/earnings` | Earnings breakdown |
+| POST | `/mcp` | MCP acquisition protocol entrypoint |
 
 ---
 

@@ -13,45 +13,28 @@ class Api::V1::ReportsControllerTest < ActionDispatch::IntegrationTest
 
     body = response.parsed_body
     assert_equal 2, body["total_skills"]
-    assert_equal 2, body["total_executions"]
-    assert_equal 2, body["completed_executions"]
-    assert_equal 0, body["failed_executions"]
-    assert_equal 0, body["total_slashed"]
+    assert_equal 2, body["listed_skills"]
+    assert_equal 1, body["verified_skill_versions"]
+    assert_equal 1, body["total_purchases"]
+    assert_equal 50.0, body["total_revenue"]
     # Alice: 1000, Bob: 500, Charlie: 250 = 1750
     assert_equal 1750.0, body["total_ledger_balance"]
   end
 
-  test "GET /api/v1/reports updates after execution and fail" do
-    post api_v1_execute_skill_url(@data_analysis),
-         headers: headers_with_auth(@bob), as: :json
-    assert_response :created
+  test "GET /api/v1/reports updates after a new purchase" do
+    create_verified_skill_listing(
+      name: "Deterministic Pricing Review",
+      slug: "deterministic-pricing-review",
+      author: @alice,
+      price: 35,
+      description: "Review a pricing payload for deterministic rule violations."
+    ).then do |listing|
+      SkillPurchaseService.new(buyer: @bob).call(skill_id: listing[:skill].id, version: listing[:version].version)
+    end
 
     get api_v1_reports_url, headers: headers_with_auth(@alice)
     body = response.parsed_body
-    assert_equal 3, body["total_executions"]
-    assert_equal 2, body["completed_executions"]
-    assert_equal 0, body["failed_executions"]
-
-    execution = Execution.last
-    @alice.update!(balance: @alice.balance - @data_analysis.stake_amount, locked_stake: @data_analysis.stake_amount)
-    patch fail_api_v1_execution_url(execution), headers: headers_with_auth(@alice)
-
-    get api_v1_reports_url, headers: headers_with_auth(@alice)
-    body = response.parsed_body
-    assert_equal 3, body["total_executions"]
-    assert_equal 2, body["completed_executions"]
-    assert_equal 1, body["failed_executions"]
-    assert_equal @data_analysis.stake_amount.to_f, body["total_slashed"]
-  end
-
-  test "GET /api/v1/reports includes slashed amounts after fail" do
-    post api_v1_execute_skill_url(@data_analysis),
-         headers: headers_with_auth(@bob), as: :json
-    execution = Execution.last
-    @alice.update!(balance: @alice.balance - @data_analysis.stake_amount, locked_stake: @data_analysis.stake_amount)
-    patch fail_api_v1_execution_url(execution), headers: headers_with_auth(@alice)
-
-    get api_v1_reports_url, headers: headers_with_auth(@alice)
-    assert_equal @data_analysis.stake_amount.to_f, response.parsed_body["total_slashed"]
+    assert_equal 2, body["total_purchases"]
+    assert_equal 85.0, body["total_revenue"]
   end
 end

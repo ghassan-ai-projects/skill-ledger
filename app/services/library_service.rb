@@ -23,21 +23,22 @@ class LibraryService
 
   # rubocop:disable Metrics/MethodLength
   def build_purchased
-    purchased_skill_ids = @current_account.purchased_executions
-      .select(:skill_id)
-      .distinct
-      .pluck(:skill_id)
+    latest_purchases = @current_account.purchases
+      .includes(skill_version: { skill: :author })
+      .group_by { |purchase| purchase.skill_version.skill_id }
+      .values
+      .map { |purchases| purchases.max_by(&:created_at) }
 
-    Skill.includes(:author).where(id: purchased_skill_ids).map { |s|
-      last_exec = @current_account.purchased_executions
-        .where(skill_id: s.id)
-        .order(timestamp: :desc)
-        .first
+    latest_purchases.map do |purchase|
+      skill = purchase.skill_version.skill
 
-      format_skill(s, favorited: @current_account.favorited_skills.include?(s)).merge(
-        "last_execution_timestamp" => last_exec&.timestamp
+      format_skill(skill, favorited: @current_account.favorited_skills.include?(skill)).merge(
+        "purchased_version" => purchase.skill_version.version,
+        "purchase_status" => purchase.status,
+        "purchased_at" => purchase.created_at,
+        "acquired_at" => purchase.acquired_at
       )
-    }
+    end
   end
   # rubocop:enable Metrics/MethodLength
 
@@ -49,10 +50,10 @@ class LibraryService
 
   def format_skill(skill, favorited:)
     skill.as_json(
-      only: %i[id name description author_id stake_amount price_per_call created_at updated_at],
-      include: { author: { only: %i[id name] } },
-      methods: [ :average_rating, :review_count ]
+      only: %i[id slug name description author_id listing_status price created_at updated_at],
+      include: { author: { only: %i[id name] } }
     ).merge(
+      "latest_verified_version" => skill.skill_versions.where(status: "verified").order(created_at: :desc).limit(1).pick(:version),
       "favorite_count" => skill.favorite_count,
       "is_favorited" => favorited
     )

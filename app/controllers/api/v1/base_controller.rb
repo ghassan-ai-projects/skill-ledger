@@ -3,7 +3,7 @@ module Api
     class BaseController < ApplicationController
       before_action :authenticate!
 
-      VALID_SORT_COLUMNS = %w[price_per_call stake_amount name created_at].freeze
+      VALID_SORT_COLUMNS = %w[price name created_at].freeze
       DEFAULT_PER_PAGE = 20
       MAX_PER_PAGE = 100
 
