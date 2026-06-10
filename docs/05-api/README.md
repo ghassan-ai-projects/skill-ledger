@@ -1,5 +1,18 @@
 # API Reference
 
+## Canonical Documents
+
+Read these first:
+
+- [Future API Direction](./future-api-direction.md)
+- [Vision Correction Decision](../03-research/vision-correction-decision-2026-06-10.md)
+
+## Status Note
+
+The current API surface in the repo still includes hosted-execution endpoints.
+
+Those endpoints describe the current implementation history, not the preferred long-term product model. The target direction is skill verification, purchase, and acquisition for client-side execution.
+
 The SkillLedger API is fully documented in the project root:
 
 - **OpenAPI 3.0 Spec:** [`openapi.yaml`](../../openapi.yaml) (900+ lines, comprehensive)
