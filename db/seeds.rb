@@ -9,19 +9,19 @@ end
 puts "  - Account: #{alice.name} (#{alice.balance} credits) — API Key: #{alice.api_key}"
 
 bob = Account.find_or_create_by!(name: "Bob") do |a|
-  a.balance = 1000.00
+  a.balance = 500.00
 end
 puts "  - Account: #{bob.name} (#{bob.balance} credits) — API Key: #{bob.api_key}"
 
 charlie = Account.find_or_create_by!(name: "Charlie") do |a|
-  a.balance = 1000.00
+  a.balance = 250.00
 end
 puts "  - Account: #{charlie.name} (#{charlie.balance} credits) — API Key: #{charlie.api_key}"
 
-diana = Account.find_or_create_by!(name: "Diana") do |a|
+dana = Account.find_or_create_by!(name: "Dana") do |a|
   a.balance = 1000.00
 end
-puts "  - Account: #{diana.name} (#{diana.balance} credits) — API Key: #{diana.api_key}"
+puts "  - Account: #{dana.name} (#{dana.balance} credits) — API Key: #{dana.api_key}"
 
 eve = Account.find_or_create_by!(name: "Eve") do |a|
   a.balance = 1000.00

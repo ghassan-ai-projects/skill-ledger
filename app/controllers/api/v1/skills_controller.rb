@@ -30,7 +30,8 @@ module Api
       end
 
       def create
-        result = SkillCreationService.new(skill_params).call
+        creation_params = skill_params.merge(author_id: @current_account.id)
+        result = SkillCreationService.new(creation_params).call
         render json: result, status: :created
       rescue SkillCreationService::Error => e
         render json: { error: e.message }, status: :unprocessable_entity
@@ -39,7 +40,7 @@ module Api
       private
 
       def skill_params
-        params.require(:skill).permit(:name, :description, :author_id, :price_per_call, :stake_amount)
+        params.require(:skill).permit(:name, :description, :price_per_call, :stake_amount)
       end
 
       def format_skill(skill)

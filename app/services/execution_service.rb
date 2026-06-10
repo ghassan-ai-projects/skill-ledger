@@ -14,25 +14,53 @@ class ExecutionService
     raise Error, "Cannot execute your own skill" if buyer == skill.author
     raise Error, "Buyer has insufficient balance" if buyer.balance < skill.price_per_call
 
-    LedgerTransactionService.new(
-      from_account: buyer,
-      to_account: skill.author,
-      amount: skill.price_per_call,
-      entry_type: "skill_execution"
-    ).call
+    execution = nil
+    Account.transaction do
+      buyer.update!(
+        balance: buyer.balance - skill.price_per_call,
+        escrow_balance: buyer.escrow_balance + skill.price_per_call
+      )
 
-    execution = Execution.create!(
-      skill: skill,
-      buyer: buyer,
-      status: "completed",
-      timestamp: Time.current
-    )
+      execution = Execution.create!(
+        skill: skill,
+        buyer: buyer,
+        status: "pending",
+        timestamp: Time.current
+      )
+    end
 
     ExecutionWebhookJob.perform_later(execution.id)
 
     execution
-  rescue LedgerTransactionService::InsufficientBalanceError => e
+  rescue StandardError => e
     raise Error, e.message
+  end
+  # rubocop:enable Metrics/MethodLength
+
+  # rubocop:disable Metrics/MethodLength
+  def complete(execution_id:)
+    execution = Execution.find(execution_id)
+    raise Error, "Execution is not pending" unless execution.status == "pending"
+
+    skill = execution.skill
+    author = skill.author
+    buyer = execution.buyer
+
+    Account.transaction do
+      buyer.update!(escrow_balance: buyer.escrow_balance - skill.price_per_call)
+      author.update!(balance: author.balance + skill.price_per_call)
+
+      LedgerTransactionService.new(
+        from_account: buyer,
+        to_account: author,
+        amount: skill.price_per_call,
+        entry_type: "skill_execution"
+      ).call
+
+      execution.update!(status: "completed")
+    end
+
+    execution
   end
   # rubocop:enable Metrics/MethodLength
 
@@ -46,24 +74,21 @@ class ExecutionService
     buyer = execution.buyer
 
     Account.transaction do
-      author.update!(balance: author.balance - skill.stake_amount)
-      buyer.update!(balance: buyer.balance + skill.price_per_call)
+      # Refund buyer's escrow
+      buyer.update!(
+        escrow_balance: buyer.escrow_balance - skill.price_per_call,
+        balance: buyer.balance + skill.price_per_call
+      )
+      
+      # Slash author's locked stake
+      author.update!(locked_stake: author.locked_stake - skill.stake_amount)
       buyer.update!(balance: buyer.balance + skill.stake_amount)
-      author.update!(balance: author.balance - skill.price_per_call)
 
       LedgerEntry.create!(
         from_account: author,
         to_account: buyer,
         amount: skill.stake_amount,
         entry_type: "slash",
-        timestamp: Time.current
-      )
-
-      LedgerEntry.create!(
-        from_account: author,
-        to_account: buyer,
-        amount: skill.price_per_call,
-        entry_type: "refund",
         timestamp: Time.current
       )
 

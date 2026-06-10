@@ -23,7 +23,7 @@ module Api
       def create
         execution = ExecutionService.new.create(
           skill_id: params[:skill_id],
-          buyer_id: params[:buyer_id]
+          buyer_id: @current_account.id
         )
         render json: execution, status: :created
       rescue ExecutionService::Error, ActiveRecord::RecordNotFound => e

@@ -45,12 +45,12 @@ class AnalyticsService
     period_execs = period_range ? completed_execs.where(timestamp: period_range) : completed_execs
 
     daily_data = period_execs
+      .includes(:skill)
       .group_by { |e| e.timestamp.to_date }
       .map { |date, execs|
-        skill = execs.first.skill
         {
           date: date.to_s,
-          amount: (execs.size * skill.price_per_call.to_f).round(2),
+          amount: execs.sum { |e| e.skill.price_per_call.to_f }.round(2),
           execution_count: execs.size
         }
       }

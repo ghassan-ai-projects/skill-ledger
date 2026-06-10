@@ -30,7 +30,7 @@ When an execution fails, the author's stake is slashed and refunded to the buyer
 
 ```bash
 ruby >= 3.3
-bundler >= 2.4
+bundler 4.0.12
 ```
 
 ### Installation
@@ -39,6 +39,9 @@ bundler >= 2.4
 # Clone the repository
 git clone git@github.com:ghassan-ai-projects/skill-ledger.git
 cd skill-ledger
+
+# Install the Bundler version used by this lockfile
+gem install bundler:4.0.12
 
 # Install Ruby dependencies
 bundle install
@@ -167,11 +170,11 @@ Creates a new skill authored by an existing account.
 ```bash
 curl -s -X POST http://localhost:3000/api/v1/skills \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
   -d '{
     "skill": {
       "name": "Translation Service",
       "description": "Translate text between languages",
-      "author_id": 1,
       "price_per_call": 25.00,
       "stake_amount": 100.00
     }
@@ -184,7 +187,6 @@ curl -s -X POST http://localhost:3000/api/v1/skills \
 |-------|------|----------|-------------|
 | `name` | String | Yes | Skill display name |
 | `description` | String | No | Detailed description |
-| `author_id` | Integer | Yes | ID of the author account |
 | `price_per_call` | Decimal | Yes | Price in credits per execution |
 | `stake_amount` | Decimal | Yes | Stake bonded by the author |
 
@@ -269,14 +271,12 @@ A buyer purchases and executes a skill. The buyer's account is charged `price_pe
 ```bash
 curl -s -X POST http://localhost:3000/api/v1/skills/1/execute \
   -H "Content-Type: application/json" \
-  -d '{ "buyer_id": 2 }' | jq
+  -H "X-API-Key: YOUR_API_KEY" | jq
 ```
 
 **Parameters:**
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `buyer_id` | Integer | Yes | ID of the buyer account |
+No parameters required. The buyer is inferred from the API Key.
 
 **Response `201 Created`:**
 ```json
@@ -761,12 +761,13 @@ Accounts ──┬── author Skills ──┬── have Executions
 
 ### Data flow
 
-1. An **Account** authors a **Skill** with a `stake_amount` (bond) and `price_per_call`.
+1. An **Account** authors a **Skill** with a `stake_amount` (bond) and `price_per_call`. The stake is deducted and held in `locked_stake`.
 2. Another **Account** (buyer) executes the skill via `POST /skills/:id/execute`.
-3. On execution, `price_per_call` is transferred from buyer → author via `LedgerTransactionService`.
-4. If the execution fails (`PATCH /executions/:id/fail`):
-   - Author's `stake_amount` is slashed and given to the buyer.
-   - `price_per_call` is refunded from author back to buyer.
+3. On execution, `price_per_call` is transferred from buyer's `balance` to `escrow_balance` and marked as `pending`.
+4. When execution completes, `price_per_call` transfers from the buyer's `escrow_balance` to the author.
+5. If the execution fails (`PATCH /executions/:id/fail`):
+   - Author's `locked_stake` is slashed and given to the buyer.
+   - `price_per_call` is refunded from buyer's `escrow_balance` back to their `balance`.
    - Two ledger entries are created: `slash` and `refund`.
 
 ### Key design decisions
@@ -776,9 +777,9 @@ Accounts ──┬── author Skills ──┬── have Executions
 | Rails mode | API-only | No views, purely JSON |
 | Database | SQLite | Local, zero-config, race-safe via serialized transactions |
 | Module structure | Namespaced models + service objects | Simple, no engine overhead |
-| Stake handling | Declared on skill; deducted on failure only | Avoids upfront escrow complexity |
-| Execution | Synchronous | Simple for MVP |
-| Authentication | None | Open for agent-to-agent use in trusted environments |
+| Stake handling | Deducted on creation and held in locked_stake | Ensures author cannot overcommit |
+| Execution | Uses escrow_balance for pending executions | Protects buyer funds from immediate settlement |
+| Authentication | API Key required (`X-API-Key`) | Secures endpoints to current account |
 
 ---
 
