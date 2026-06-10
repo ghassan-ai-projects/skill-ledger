@@ -1,6 +1,7 @@
 class Account < ApplicationRecord
   has_many :authored_skills, class_name: "Skill", foreign_key: :author_id, dependent: :destroy
   has_many :purchased_executions, class_name: "Execution", foreign_key: :buyer_id, dependent: :destroy
+  has_many :purchases, foreign_key: :buyer_id, dependent: :destroy
   has_many :sent_ledger_entries, class_name: "LedgerEntry", foreign_key: :from_account_id, dependent: :destroy
   has_many :received_ledger_entries, class_name: "LedgerEntry", foreign_key: :to_account_id, dependent: :destroy
   has_many :favorites, dependent: :destroy

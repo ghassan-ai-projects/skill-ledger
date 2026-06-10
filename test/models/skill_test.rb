@@ -50,6 +50,44 @@ class SkillTest < ActiveSupport::TestCase
     assert_respond_to skill, :executions
   end
 
+  test "should auto-generate slug from name" do
+    skill = Skill.new(
+      name: "Deterministic Pricing Review",
+      author: accounts(:alice),
+      stake_amount: 10,
+      price_per_call: 5
+    )
+
+    skill.valid?
+    assert_equal "deterministic-pricing-review", skill.slug
+  end
+
+  test "should require unique slug" do
+    skill = Skill.new(
+      name: "Another Data Analysis",
+      slug: skills(:data_analysis).slug,
+      author: accounts(:alice),
+      stake_amount: 10,
+      price_per_call: 5
+    )
+
+    assert_not skill.valid?
+    assert_includes skill.errors[:slug], "has already been taken"
+  end
+
+  test "should require known listing status" do
+    skill = Skill.new(
+      name: "Bad Listing Status",
+      author: accounts(:alice),
+      stake_amount: 10,
+      price_per_call: 5,
+      listing_status: "other"
+    )
+
+    assert_not skill.valid?
+    assert_includes skill.errors[:listing_status], "is not included in the list"
+  end
+
   test "should accept valid https webhook_url" do
     skill = Skill.new(
       name: "Webhook Skill",

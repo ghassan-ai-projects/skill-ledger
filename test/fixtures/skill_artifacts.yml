@@ -1,0 +1,29 @@
+data_analysis_v1_artifact:
+  skill_version: data_analysis_v1
+  artifact_type: mcp_tool_manifest
+  manifest:
+    name: data-analysis
+    description: Analyze datasets and generate reports
+    version: 1.0.0
+    runtime: client
+    entrypoint: data_analysis.execute
+    input_schema:
+      type: object
+    output_schema:
+      type: object
+  checksum: data-analysis-checksum-v1
+
+code_review_v1_artifact:
+  skill_version: code_review_v1
+  artifact_type: mcp_tool_manifest
+  manifest:
+    name: code-review
+    description: Review code for bugs and best practices
+    version: 1.0.0
+    runtime: client
+    entrypoint: code_review.execute
+    input_schema:
+      type: object
+    output_schema:
+      type: object
+  checksum: code-review-checksum-v1

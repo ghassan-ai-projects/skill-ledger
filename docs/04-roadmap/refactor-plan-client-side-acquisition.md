@@ -4,6 +4,12 @@
 
 Refactor SkillLedger from a hosted-execution simulation into a verified skill acquisition and accountability platform.
 
+## Canonical Companion Plan
+
+For the execution-grade plan with acceptance criteria and definition of done, see:
+
+- [Detailed Refactor Execution Plan](./detailed-refactor-execution-plan.md)
+
 ## Preservation Strategy
 
 The current implementation is preserved here:

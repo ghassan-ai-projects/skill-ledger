@@ -1,113 +1,120 @@
 # SkillLedger Implementation Tracker
 
-**Status:** Phase 1 Complete, First Useful Use Case Added  
+**Status:** First client-side acquisition slice implemented  
 **Date:** 2026-06-10  
 **Owner:** Codex
 
 ## Goal
 
-Make SkillLedger work for a few realistic agent-to-agent scenarios, using test-driven development, while keeping a restartable progress log in this file.
+Refactor SkillLedger toward the clarified product:
 
-## Constraints
+> verify skill artifacts, sell them to buyer agents, and let buyers execute locally.
 
-- Build on the current Rails API rather than redesigning the entire system at once.
-- Prefer end-to-end scenarios over abstract refactors.
-- Use tests first for each scenario.
-- Keep notes here so work can resume cleanly after interruption.
+This tracker is the restartable log for the current refactor branch.
 
-## Target Scenarios
+## Implemented In This Slice
 
-### Scenario 1: Escrowed skill execution completes successfully
+### Scenario 1: Verified skill discovery
 
-**Story:**  
-An agent buyer purchases a deterministic skill from another agent. Funds move into escrow first. After successful completion, escrow is released to the author, the ledger records settlement once, and execution state becomes `completed`.
+Covered now:
+- `skills/list` returns only publicly listed, verified skill versions
+- `skills/get` returns manifest summary, checksum, and verification metadata
+- unverified versions are excluded from public discovery
 
-**Why this matters:**  
-This is the minimum credible happy path for the product thesis.
+### Scenario 2: Retry-safe purchase
 
-**TDD slices:**
-- [x] Add tests for pending execution creation with escrow debit
-- [x] Add tests for successful execution completion
-- [x] Fix service/controller/routes to support the completion path
-- [x] Verify ledger/account balances are correct and not double-settled
+Covered now:
+- `skills/purchase` creates a durable `Purchase`
+- buyer balance is debited once
+- author balance is credited once
+- one `skill_purchase` ledger entry is created
+- retrying the same purchase returns the existing paid purchase without charging again
 
-### Scenario 2: Failed execution refunds buyer and slashes author stake safely
+### Scenario 3: Artifact acquisition for local execution
 
-**Story:**  
-An agent buyer purchases a skill, execution fails, buyer gets escrow refunded, author stake is slashed from reserved stake, execution becomes `failed`, and balances never go negative.
+Covered now:
+- `skills/acquire` returns artifact payload, checksum, verification metadata, and entitlement
+- acquisition sets `acquired_at`
+- acquisition does not create `Execution`
+- acquisition does not move money
+- acquisition does not return hosted execution output
 
-**Why this matters:**  
-This is the core trust and accountability mechanism.
+### Scenario 4: Publication verification
 
-**TDD slices:**
-- [x] Add tests for failing only pending executions
-- [x] Add tests for refund + slash behavior from escrow and locked stake
-- [x] Add account invariants for `escrow_balance` and `locked_stake`
-- [x] Verify ledger entries and state transitions
+Covered now:
+- `SkillArtifactVerificationService` verifies schema, runtime, version match, and checksum
+- verification updates `SkillVerification`
+- version status moves to `verified` or `rejected`
 
-### Scenario 3: Agents discover and invoke skills through an MCP-style interface
+## Domain Added
 
-**Story:**  
-An agent can discover available skills as callable tools and invoke a skill using an MCP-style request/response contract instead of ad hoc marketplace-only endpoints.
+- `Skill.slug`
+- `Skill.listing_status`
+- `SkillVersion`
+- `SkillArtifact`
+- `SkillVerification`
+- `Purchase`
 
-**Why this matters:**  
-This is the most direct path to agent interoperability.
+## MCP Status
 
-**TDD slices:**
-- [x] Define minimal MCP-style JSON-RPC contract for tool discovery and invocation
-- [x] Add request tests for listing tools
-- [x] Add request tests for invoking a tool
-- [x] Route invocation into the execution flow
+### Current supported acquisition methods
 
-### Scenario 4: Real built-in `Data Analysis` skill through MCP
+- `skills/list`
+- `skills/get`
+- `skills/purchase`
+- `skills/acquire`
 
-**Story:**  
-An agent sends a numeric dataset to the built-in `Data Analysis` skill through MCP and receives deterministic summary statistics. The platform creates an execution, settles payment, stores the result, and returns a completed response in one flow.
+### Legacy transitional methods still present
 
-**Why this matters:**  
-This is the first actually useful end-to-end skill, not just a settlement simulation.
+- `tools/list`
+- `tools/call`
 
-**TDD slices:**
-- [x] Add runtime tests for deterministic statistics
-- [x] Add MCP tests for built-in tool schema
-- [x] Add MCP tests for successful analysis execution
-- [x] Keep non-built-in skills on the pending/manual path
+Reason:
+- they preserve the old hosted-execution path during the refactor
+- they should not be treated as the long-term primary product interface
 
-## Current Findings
+## Tests Added
 
-- Execution flow now supports `pending -> completed` and `pending -> failed`.
-- Completion and failure are restricted to the skill author at the controller layer.
-- A minimal MCP-style endpoint now exposes skill discovery and skill invocation.
-- `Data Analysis` is now a real built-in skill that auto-completes through MCP.
-- Toolchain execution still requires explicit use of Ruby 3.3.11 / Bundler 4.0.12 in this environment.
+- model tests for new domain objects
+- service tests for verification, purchase, and acquisition
+- MCP request tests for the new acquisition methods
+- end-to-end contract for verified skill acquisition
 
-## Progress Log
+## Validation
 
-### 2026-06-10
+Passing command:
 
-- [x] Inspected current execution, routing, and test baseline
-- [x] Identified that the current escrow implementation is incomplete
-- [x] Created this tracker
-- [x] Stabilized a working Rails test command under Ruby 3.3.11 / Bundler 4.0.12
-- [x] Wrote failing tests for Scenario 1 and Scenario 2
-- [x] Implemented escrow creation, completion, and failure flows
-- [x] Added account invariants for `locked_stake` and `escrow_balance`
-- [x] Added an MCP-style JSON-RPC endpoint for tool discovery and invocation
-- [x] Added a built-in `Data Analysis` runtime with deterministic summary statistics
-- [x] Updated stale tests to match current authenticated actor semantics
-- [x] Verified the full test suite passes: `RAILS_ENV=test PARALLEL_WORKERS=1 ~/.rbenv/versions/3.3.11/bin/ruby -S bundle _4.0.12_ exec ~/.rbenv/versions/3.3.11/bin/ruby bin/rails test`
+```bash
+RAILS_ENV=test PARALLEL_WORKERS=1 ~/.rbenv/versions/3.3.11/bin/bundle exec ~/.rbenv/versions/3.3.11/bin/ruby bin/rails test
+```
 
-## Remaining Follow-Ups
+Note:
+- `PARALLEL_WORKERS=1` is now respected to avoid SQLite locking during local runs
+- Bundler still prints local environment noise about `/Users/ghassan` not being writable, but the suite passes
 
-- Document the MCP endpoint contract in the API docs / README.
-- Decide whether refunds should also create an explicit ledger entry in addition to slash events.
-- Resolve the Bundler stderr noise caused by the local shell environment leaking the system Ruby while tests still complete successfully.
-- Decide whether more built-in skills should follow the same immediate MCP auto-complete model or use external worker execution.
+## Remaining Work
+
+### Product-facing
+
+- remove or fully isolate the hosted-execution story from public documentation
+- decide final naming migration away from `price_per_call` toward acquisition pricing
+- define dispute/report flow before adding accountability claims beyond provenance and auditable purchase history
+
+### Protocol-facing
+
+- add idempotency keys to purchase requests if client-driven replay control is required
+- decide whether `skills/get` should accept `slug` in addition to `skill_id`
+- define package/download strategy if artifacts move out of database storage
+
+### Domain-facing
+
+- decide whether `Execution` should be archived, migrated, or removed in a later phase
+- add explicit state transition guards if status changes become more complex
 
 ## Resume From Here
 
-If work stops unexpectedly, resume with:
+If work resumes later, start with:
 
-1. Extend the MCP contract beyond `tools/list` and `tools/call`.
-2. Decide whether execution completion/failure should be driven by webhooks, worker callbacks, or explicit author actions only.
-3. Document the new lifecycle and wire it into public API docs.
+1. remove hosted-execution language from the remaining public docs and API docs
+2. decide whether to deprecate `tools/*` immediately or keep it behind a transitional flag
+3. design the next useful acquisition artifact beyond the manifest-only MVP

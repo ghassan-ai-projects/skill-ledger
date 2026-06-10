@@ -1,0 +1,18 @@
+data_analysis_v1_verification:
+  skill_version: data_analysis_v1
+  status: verified
+  checks:
+    artifact_type_supported: true
+    manifest_valid: true
+    runtime_client: true
+    version_matches: true
+    checksum_matches: true
+  verified_at: 2026-06-10 10:00:00
+
+code_review_v1_verification:
+  skill_version: code_review_v1
+  status: pending
+  checks:
+    artifact_type_supported: true
+    manifest_valid: true
+  verified_at:
