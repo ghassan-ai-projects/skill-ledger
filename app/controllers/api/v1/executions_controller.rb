@@ -31,11 +31,32 @@ module Api
         render json: { error: e.message, details: [] }, status: status_code
       end
 
-      def fail
-        execution = ExecutionService.new.fail(execution_id: params[:id])
+      def complete
+        execution = Execution.find(params[:id])
+        return render_forbidden unless execution.skill.author_id == @current_account.id
+
+        execution = ExecutionService.new.complete(execution_id: execution.id)
         render json: execution, status: :ok
-      rescue ExecutionService::Error => e
-        render json: { error: e.message, details: [] }, status: :unprocessable_entity
+      rescue ExecutionService::Error, ActiveRecord::RecordNotFound => e
+        status_code = e.is_a?(ActiveRecord::RecordNotFound) ? :not_found : :unprocessable_entity
+        render json: { error: e.message, details: [] }, status: status_code
+      end
+
+      def fail
+        execution = Execution.find(params[:id])
+        return render_forbidden unless execution.skill.author_id == @current_account.id
+
+        execution = ExecutionService.new.fail(execution_id: execution.id)
+        render json: execution, status: :ok
+      rescue ExecutionService::Error, ActiveRecord::RecordNotFound => e
+        status_code = e.is_a?(ActiveRecord::RecordNotFound) ? :not_found : :unprocessable_entity
+        render json: { error: e.message, details: [] }, status: status_code
+      end
+
+      private
+
+      def render_forbidden
+        render json: { error: "Only the skill author can perform this action", details: [] }, status: :forbidden
       end
     end
   end

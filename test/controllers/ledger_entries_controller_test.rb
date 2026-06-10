@@ -42,9 +42,12 @@ class Api::V1::LedgerEntriesControllerTest < ActionDispatch::IntegrationTest
 
   test "GET /api/v1/ledger includes ledger entry created by skill execution" do
     post api_v1_execute_skill_url(@data_analysis),
-         params: { buyer_id: @charlie.id },
-         headers: headers_with_auth(@alice), as: :json
+         headers: headers_with_auth(@charlie), as: :json
     assert_response :created
+    execution = Execution.last
+
+    patch complete_api_v1_execution_url(execution), headers: headers_with_auth(@alice), as: :json
+    assert_response :ok
 
     get api_v1_ledger_index_url, headers: headers_with_auth(@alice)
     assert_response :success

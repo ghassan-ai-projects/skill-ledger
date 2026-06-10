@@ -23,17 +23,17 @@ class Api::V1::ReportsControllerTest < ActionDispatch::IntegrationTest
 
   test "GET /api/v1/reports updates after execution and fail" do
     post api_v1_execute_skill_url(@data_analysis),
-         params: { buyer_id: @bob.id },
-         headers: headers_with_auth(@alice), as: :json
+         headers: headers_with_auth(@bob), as: :json
     assert_response :created
 
     get api_v1_reports_url, headers: headers_with_auth(@alice)
     body = response.parsed_body
     assert_equal 3, body["total_executions"]
-    assert_equal 3, body["completed_executions"]
+    assert_equal 2, body["completed_executions"]
     assert_equal 0, body["failed_executions"]
 
     execution = Execution.last
+    @alice.update!(balance: @alice.balance - @data_analysis.stake_amount, locked_stake: @data_analysis.stake_amount)
     patch fail_api_v1_execution_url(execution), headers: headers_with_auth(@alice)
 
     get api_v1_reports_url, headers: headers_with_auth(@alice)
@@ -46,9 +46,9 @@ class Api::V1::ReportsControllerTest < ActionDispatch::IntegrationTest
 
   test "GET /api/v1/reports includes slashed amounts after fail" do
     post api_v1_execute_skill_url(@data_analysis),
-         params: { buyer_id: @bob.id },
-         headers: headers_with_auth(@alice), as: :json
+         headers: headers_with_auth(@bob), as: :json
     execution = Execution.last
+    @alice.update!(balance: @alice.balance - @data_analysis.stake_amount, locked_stake: @data_analysis.stake_amount)
     patch fail_api_v1_execution_url(execution), headers: headers_with_auth(@alice)
 
     get api_v1_reports_url, headers: headers_with_auth(@alice)

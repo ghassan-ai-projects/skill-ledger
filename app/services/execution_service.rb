@@ -32,7 +32,7 @@ class ExecutionService
     ExecutionWebhookJob.perform_later(execution.id)
 
     execution
-  rescue StandardError => e
+  rescue ActiveRecord::RecordInvalid => e
     raise Error, e.message
   end
   # rubocop:enable Metrics/MethodLength
@@ -47,15 +47,18 @@ class ExecutionService
     buyer = execution.buyer
 
     Account.transaction do
+      raise Error, "Escrow balance is insufficient" if buyer.escrow_balance < skill.price_per_call
+
       buyer.update!(escrow_balance: buyer.escrow_balance - skill.price_per_call)
       author.update!(balance: author.balance + skill.price_per_call)
 
-      LedgerTransactionService.new(
+      LedgerEntry.create!(
         from_account: buyer,
         to_account: author,
         amount: skill.price_per_call,
-        entry_type: "skill_execution"
-      ).call
+        entry_type: "skill_execution",
+        timestamp: Time.current
+      )
 
       execution.update!(status: "completed")
     end
@@ -68,18 +71,22 @@ class ExecutionService
   def fail(execution_id:)
     execution = Execution.find(execution_id)
     raise Error, "Execution is already failed" if execution.status == "failed"
+    raise Error, "Execution is not pending" unless execution.status == "pending"
 
     skill = execution.skill
     author = skill.author
     buyer = execution.buyer
 
     Account.transaction do
+      raise Error, "Escrow balance is insufficient" if buyer.escrow_balance < skill.price_per_call
+      raise Error, "Author locked stake is insufficient" if author.locked_stake < skill.stake_amount
+
       # Refund buyer's escrow
       buyer.update!(
         escrow_balance: buyer.escrow_balance - skill.price_per_call,
         balance: buyer.balance + skill.price_per_call
       )
-      
+
       # Slash author's locked stake
       author.update!(locked_stake: author.locked_stake - skill.stake_amount)
       buyer.update!(balance: buyer.balance + skill.stake_amount)
@@ -98,6 +105,8 @@ class ExecutionService
     ExecutionWebhookJob.perform_later(execution.id)
 
     execution
+  rescue ActiveRecord::RecordInvalid => e
+    raise Error, e.message
   end
   # rubocop:enable Metrics/MethodLength
 end

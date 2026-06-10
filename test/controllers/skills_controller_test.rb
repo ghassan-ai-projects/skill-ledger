@@ -277,8 +277,8 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     assert_equal @alice.id, body["author_id"]
   end
 
-  test "POST /api/v1/skills returns error when author not found" do
-    assert_no_difference("Skill.count") do
+  test "POST /api/v1/skills ignores client-supplied author_id and uses the current account" do
+    assert_difference("Skill.count", 1) do
       post api_v1_skills_url, params: {
         skill: {
           name: "Orphan Skill",
@@ -288,8 +288,8 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
         }
       }, headers: headers_with_auth(@alice), as: :json
     end
-    assert_response :unprocessable_entity
-    assert_includes response.parsed_body["error"], "Author not found"
+    assert_response :created
+    assert_equal @alice.id, response.parsed_body["author_id"]
   end
 
   test "POST /api/v1/skills returns error when author has insufficient balance for stake" do

@@ -28,6 +28,18 @@ class AccountTest < ActiveSupport::TestCase
     assert_includes account.errors[:balance], "must be greater than or equal to 0"
   end
 
+  test "should require non-negative locked_stake" do
+    account = Account.new(valid_attributes(locked_stake: -1))
+    assert_not account.valid?
+    assert_includes account.errors[:locked_stake], "must be greater than or equal to 0"
+  end
+
+  test "should require non-negative escrow_balance" do
+    account = Account.new(valid_attributes(escrow_balance: -1))
+    assert_not account.valid?
+    assert_includes account.errors[:escrow_balance], "must be greater than or equal to 0"
+  end
+
   test "should allow zero balance" do
     account = Account.new(valid_attributes(balance: 0))
     assert account.valid?

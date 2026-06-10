@@ -15,6 +15,7 @@ Rails.application.routes.draw do
 
       resources :executions, only: %i[index] do
         member do
+          patch :complete
           patch :fail
           post :review, to: "reviews#create"
         end
@@ -34,6 +35,7 @@ Rails.application.routes.draw do
       resources :favorites, only: %i[create index destroy]
 
       get "me/library", to: "library#index"
+      post "mcp", to: "mcp#create", as: :mcp
     end
   end
 end
