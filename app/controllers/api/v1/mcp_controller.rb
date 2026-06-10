@@ -5,7 +5,7 @@ module Api
         payload = McpService.new(@current_account).handle(
           request_id: params[:id],
           method: params[:method],
-          params: params[:params] || {}
+          params: normalize_params(params[:params])
         )
 
         render json: payload, status: :ok
@@ -18,6 +18,15 @@ module Api
             message: e.message
           }
         }, status: :unprocessable_entity
+      end
+
+      private
+
+      def normalize_params(value)
+        return {} if value.nil?
+        return value.to_unsafe_h if value.respond_to?(:to_unsafe_h)
+
+        value
       end
     end
   end

@@ -38,7 +38,7 @@ class ExecutionService
   # rubocop:enable Metrics/MethodLength
 
   # rubocop:disable Metrics/MethodLength
-  def complete(execution_id:)
+  def complete(execution_id:, result: nil)
     execution = Execution.find(execution_id)
     raise Error, "Execution is not pending" unless execution.status == "pending"
 
@@ -60,8 +60,10 @@ class ExecutionService
         timestamp: Time.current
       )
 
-      execution.update!(status: "completed")
+      execution.update!(status: "completed", result: serialize_result(result))
     end
+
+    ExecutionWebhookJob.perform_later(execution.id)
 
     execution
   end
@@ -109,4 +111,13 @@ class ExecutionService
     raise Error, e.message
   end
   # rubocop:enable Metrics/MethodLength
+
+  private
+
+  def serialize_result(result)
+    return nil if result.nil?
+    return result if result.is_a?(String)
+
+    result.to_json
+  end
 end

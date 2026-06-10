@@ -1,6 +1,6 @@
 # SkillLedger Implementation Tracker
 
-**Status:** Phase 1 Complete  
+**Status:** Phase 1 Complete, First Useful Use Case Added  
 **Date:** 2026-06-10  
 **Owner:** Codex
 
@@ -59,11 +59,26 @@ This is the most direct path to agent interoperability.
 - [x] Add request tests for invoking a tool
 - [x] Route invocation into the execution flow
 
+### Scenario 4: Real built-in `Data Analysis` skill through MCP
+
+**Story:**  
+An agent sends a numeric dataset to the built-in `Data Analysis` skill through MCP and receives deterministic summary statistics. The platform creates an execution, settles payment, stores the result, and returns a completed response in one flow.
+
+**Why this matters:**  
+This is the first actually useful end-to-end skill, not just a settlement simulation.
+
+**TDD slices:**
+- [x] Add runtime tests for deterministic statistics
+- [x] Add MCP tests for built-in tool schema
+- [x] Add MCP tests for successful analysis execution
+- [x] Keep non-built-in skills on the pending/manual path
+
 ## Current Findings
 
 - Execution flow now supports `pending -> completed` and `pending -> failed`.
 - Completion and failure are restricted to the skill author at the controller layer.
 - A minimal MCP-style endpoint now exposes skill discovery and skill invocation.
+- `Data Analysis` is now a real built-in skill that auto-completes through MCP.
 - Toolchain execution still requires explicit use of Ruby 3.3.11 / Bundler 4.0.12 in this environment.
 
 ## Progress Log
@@ -78,6 +93,7 @@ This is the most direct path to agent interoperability.
 - [x] Implemented escrow creation, completion, and failure flows
 - [x] Added account invariants for `locked_stake` and `escrow_balance`
 - [x] Added an MCP-style JSON-RPC endpoint for tool discovery and invocation
+- [x] Added a built-in `Data Analysis` runtime with deterministic summary statistics
 - [x] Updated stale tests to match current authenticated actor semantics
 - [x] Verified the full test suite passes: `RAILS_ENV=test PARALLEL_WORKERS=1 ~/.rbenv/versions/3.3.11/bin/ruby -S bundle _4.0.12_ exec ~/.rbenv/versions/3.3.11/bin/ruby bin/rails test`
 
@@ -86,6 +102,7 @@ This is the most direct path to agent interoperability.
 - Document the MCP endpoint contract in the API docs / README.
 - Decide whether refunds should also create an explicit ledger entry in addition to slash events.
 - Resolve the Bundler stderr noise caused by the local shell environment leaking the system Ruby while tests still complete successfully.
+- Decide whether more built-in skills should follow the same immediate MCP auto-complete model or use external worker execution.
 
 ## Resume From Here
 
