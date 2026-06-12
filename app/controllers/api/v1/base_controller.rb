@@ -54,7 +54,7 @@ module Api
           sort_order = default_order
         end
 
-        collection.order(Arel.sql("#{ActiveRecord::Base.connection.quote_column_name(sort_column)} #{sort_order}"))
+        collection.order(sort_column => sort_order.to_sym)
       end
     end
   end

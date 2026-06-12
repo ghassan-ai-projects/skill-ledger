@@ -72,5 +72,4 @@ class SkillTest < ActiveSupport::TestCase
     assert_not skill.valid?
     assert_includes skill.errors[:listing_status], "is not included in the list"
   end
-
 end

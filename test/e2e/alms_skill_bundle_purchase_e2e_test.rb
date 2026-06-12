@@ -573,13 +573,7 @@ class AlmsSkillBundlePurchaseE2ETest < ActionDispatch::IntegrationTest
 
   def create_skill_as(author)
     post "/api/v1/skills",
-         params: {
-           skill: {
-             name: "ALMS Default Learning Workflow",
-             description: "Default ALMS-connected learning workflow for new agents.",
-             price: 55
-           }
-         },
+         params: skill_create_payload,
          headers: headers_with_auth(author), as: :json
 
     assert_response :created
@@ -588,16 +582,7 @@ class AlmsSkillBundlePurchaseE2ETest < ActionDispatch::IntegrationTest
 
   def upload_version_as(skill_id:, author:, version:, changelog:, manifest:)
     post versions_api_v1_skill_url(skill_id),
-         params: {
-           version: {
-             version: version,
-             changelog: changelog,
-             artifact: {
-               artifact_type: "mcp_tool_manifest",
-               manifest: manifest
-             }
-           }
-         },
+         params: version_upload_payload(version: version, changelog: changelog, manifest: manifest),
          headers: headers_with_auth(author), as: :json
 
     assert_response :created
@@ -615,6 +600,29 @@ class AlmsSkillBundlePurchaseE2ETest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_equal "listed", response.parsed_body["listing_status"]
+  end
+
+  def skill_create_payload
+    {
+      skill: {
+        name: "ALMS Default Learning Workflow",
+        description: "Default ALMS-connected learning workflow for new agents.",
+        price: 55
+      }
+    }
+  end
+
+  def version_upload_payload(version:, changelog:, manifest:)
+    {
+      version: {
+        version: version,
+        changelog: changelog,
+        artifact: {
+          artifact_type: "mcp_tool_manifest",
+          manifest: manifest
+        }
+      }
+    }
   end
 
   def alms_manifest(slug:, version:, entrypoint:, files:)
