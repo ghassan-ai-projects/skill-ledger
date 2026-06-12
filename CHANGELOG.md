@@ -4,7 +4,7 @@ All notable changes to this project should be documented in this file.
 
 The format is based on Keep a Changelog and this project follows a simple date-and-release-note style until a formal public versioning cadence is established.
 
-## Unreleased
+## 0.1.0 - 2026-06-12
 
 ### Added
 

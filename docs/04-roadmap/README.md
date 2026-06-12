@@ -10,6 +10,7 @@ SkillLedger is being refocused around verified skill publication, artifact acqui
 
 Use these documents for active planning:
 
+- [Next-Level Plan - 2026-06-12](./next-level-plan-2026-06-12.md)
 - [MCP-First Migration Plan](./mcp-first-migration-plan.md)
 - [Implementation Tracker](./implementation-tracker.md)
 - [Refactor Plan — Client-Side Skill Acquisition Model](./refactor-plan-client-side-acquisition.md)
