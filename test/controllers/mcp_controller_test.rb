@@ -120,6 +120,7 @@ class Api::V1::McpControllerTest < ActionDispatch::IntegrationTest
     body = response.parsed_body
     assert_equal "mcp_tool_manifest", body["result"]["artifact"]["type"]
     assert_equal "deterministic-pricing-review", body["result"]["artifact"]["manifest"]["name"]
+    assert_equal [], body["result"]["artifact"]["files"]
     assert_equal "verified", body["result"]["verification"]["status"]
   end
 end

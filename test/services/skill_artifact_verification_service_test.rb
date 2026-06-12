@@ -102,4 +102,31 @@ class SkillArtifactVerificationServiceTest < ActiveSupport::TestCase
     assert_equal "rejected", verification.status
     assert_equal false, verification.checks["checksum_matches"]
   end
+
+  test "rejects invalid bundled files metadata" do
+    manifest = {
+      "name" => "deterministic-pricing-review",
+      "description" => "Review pricing payloads",
+      "version" => "1.0.0",
+      "runtime" => "client",
+      "entrypoint" => "pricing_review.evaluate",
+      "input_schema" => { "type" => "object" },
+      "output_schema" => { "type" => "object" },
+      "files" => [
+        {
+          "path" => "scripts/alms_mcp.py",
+          "media_type" => "text/x-python"
+        }
+      ]
+    }
+    version = create_version_with_artifact(
+      manifest: manifest,
+      checksum: SkillArtifactVerificationService.checksum_for_manifest(manifest)
+    )
+
+    verification = SkillArtifactVerificationService.new(skill_version: version).call
+
+    assert_equal "rejected", verification.status
+    assert_equal false, verification.checks["bundled_files_valid"]
+  end
 end
