@@ -4,17 +4,12 @@ class AnalyticsService
   end
 
   def show(author_id:, period: nil)
-    author = Account.find(author_id)
-
-    unless author.id == @current_account.id
-      raise AnalyticsService::Forbidden, "You can only access your own analytics"
-    end
-
+    author = authorized_author(author_id)
     period_range = parse_period(period)
 
     skills = author.authored_skills
-    skill_versions = SkillVersion.where(skill_id: skills.select(:id))
-    purchases = Purchase.includes(:buyer, skill_version: :skill).where(skill_version_id: skill_versions.select(:id))
+    skill_versions = versions_for_scope(skills.select(:id))
+    purchases = purchases_for_versions(skill_versions.select(:id))
     period_purchases = period_range ? purchases.where(created_at: period_range) : purchases
 
     {
@@ -30,16 +25,11 @@ class AnalyticsService
   end
 
   def earnings(author_id:, period: nil)
-    author = Account.find(author_id)
-
-    unless author.id == @current_account.id
-      raise AnalyticsService::Forbidden, "You can only access your own analytics"
-    end
-
+    author = authorized_author(author_id)
     period_range = parse_period(period)
 
-    skill_versions = SkillVersion.where(skill_id: author.authored_skills.select(:id))
-    period_purchases = Purchase.includes(skill_version: :skill).where(skill_version_id: skill_versions.select(:id))
+    skill_versions = versions_for_scope(author.authored_skills.select(:id))
+    period_purchases = earnings_purchases_for_versions(skill_versions.select(:id))
     period_purchases = period_purchases.where(created_at: period_range) if period_range
 
     daily_data = period_purchases
@@ -90,32 +80,57 @@ class AnalyticsService
   end
   # rubocop:enable Metrics/MethodLength
 
+  def authorized_author(author_id)
+    author = Account.find(author_id)
+    raise AnalyticsService::Forbidden, "You can only access your own analytics" unless author.id == @current_account.id
+
+    author
+  end
+
+  def versions_for_scope(skill_ids)
+    SkillVersion.where(skill_id: skill_ids)
+  end
+
+  def purchases_for_versions(skill_version_ids)
+    Purchase.includes(:buyer, skill_version: :skill).where(skill_version_id: skill_version_ids)
+  end
+
+  def earnings_purchases_for_versions(skill_version_ids)
+    Purchase.includes(skill_version: :skill).where(skill_version_id: skill_version_ids)
+  end
+
   def top_skills(skills, purchases)
     skills.map { |skill|
       skill_purchases = purchases.select { |purchase| purchase.skill_version.skill_id == skill.id }
-      {
-        id: skill.id,
-        name: skill.name,
-        purchase_count: skill_purchases.count,
-        total_revenue: skill_purchases.sum { |purchase| purchase.amount.to_f }.round(2)
-      }
+      top_skill_entry(skill, skill_purchases)
     }
       .sort_by { |s| -s[:purchase_count] }
       .first(5)
   end
 
   def recent_purchases(purchases)
-    purchases.order(created_at: :desc).limit(10).map { |purchase|
-      {
-        id: purchase.id,
-        skill_name: purchase.skill_version.skill.name,
-        buyer_name: purchase.buyer.name,
-        version: purchase.skill_version.version,
-        status: purchase.status,
-        amount: purchase.amount.to_f,
-        purchased_at: purchase.created_at,
-        acquired_at: purchase.acquired_at
-      }
+    purchases.order(created_at: :desc).limit(10).map { |purchase| recent_purchase_entry(purchase) }
+  end
+
+  def top_skill_entry(skill, skill_purchases)
+    {
+      id: skill.id,
+      name: skill.name,
+      purchase_count: skill_purchases.count,
+      total_revenue: skill_purchases.sum { |purchase| purchase.amount.to_f }.round(2)
+    }
+  end
+
+  def recent_purchase_entry(purchase)
+    {
+      id: purchase.id,
+      skill_name: purchase.skill_version.skill.name,
+      buyer_name: purchase.buyer.name,
+      version: purchase.skill_version.version,
+      status: purchase.status,
+      amount: purchase.amount.to_f,
+      purchased_at: purchase.created_at,
+      acquired_at: purchase.acquired_at
     }
   end
 end
