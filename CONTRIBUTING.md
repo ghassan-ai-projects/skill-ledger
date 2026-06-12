@@ -6,6 +6,7 @@ Thanks for helping improve SkillLedger.
 
 - read [README.md](README.md)
 - skim [documentation/README.md](documentation/README.md)
+- skim [AGENTS.md](AGENTS.md) for repository workflow and validation expectations
 - open an issue before large changes so we can align on direction
 
 ## Development Setup
