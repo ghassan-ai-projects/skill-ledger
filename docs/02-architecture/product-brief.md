@@ -62,16 +62,16 @@ Agent-to-agent commerce stays limited to free/open services. The A2A economy nev
 
 ---
 
-## Success Criteria (MVP Built)
+## Status Note
 
-- ✅ Rails app starts with `rails s`
-- ✅ Seed data creates 5 agents with balances
-- ✅ Can create a skill via POST /skills
-- ✅ Can execute a skill via POST /skills/:id/execute
-- ✅ Execution failure triggers stake slash + buyer refund
-- ✅ Ledger shows every transaction
-- ✅ Review, favorites, library, analytics endpoints
-- ✅ 78+ passing tests
-- ✅ OpenAPI/Swagger docs
-- ✅ Webhook integration
-- ✅ README with full API documentation
+This brief reflects the earlier hosted-execution MVP framing and should be read as product history.
+
+The current implementation direction is:
+- verify skill artifacts
+- sell them through durable purchases
+- let buyers acquire artifacts and execute locally
+
+Current canonical docs:
+- [Clarified Product Vision](../01-vision/clarified-product-vision.md)
+- [Clarified Domain And Architecture](./clarified-domain-and-architecture.md)
+- [Current Scenario And MCP Status](../05-api/current-scenario-and-mcp-status.md)

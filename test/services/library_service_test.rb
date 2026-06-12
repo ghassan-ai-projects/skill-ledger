@@ -43,12 +43,14 @@ class LibraryServiceTest < ActiveSupport::TestCase
     assert_includes names, "Data Analysis"
   end
 
-  test "purchased includes last_execution_timestamp" do
+  test "purchased includes purchase metadata" do
     service = LibraryService.new(@bob)
     result = service.call
 
     result[:purchased].each do |s|
-      assert s.key?("last_execution_timestamp")
+      assert s.key?("purchased_version")
+      assert s.key?("purchase_status")
+      assert s.key?("purchased_at")
     end
   end
 

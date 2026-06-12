@@ -1,0 +1,7 @@
+bob_data_analysis_purchase:
+  buyer: bob
+  skill_version: data_analysis_v1
+  amount: 50.00
+  status: paid
+  acquired_at: 2026-06-10 12:00:00
+  entitlement_token: bob-data-analysis-token

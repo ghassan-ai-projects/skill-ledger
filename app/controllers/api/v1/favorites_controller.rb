@@ -39,9 +39,8 @@ module Api
 
       def format_skill(skill)
         skill.as_json(
-          only: %i[id name description author_id stake_amount price_per_call created_at updated_at],
-          include: { author: { only: %i[id name] } },
-          methods: [ :average_rating, :review_count ]
+          only: %i[id slug name description author_id listing_status price created_at updated_at],
+          include: { author: { only: %i[id name] } }
         ).merge(
           "favorite_count" => skill.favorite_count,
           "is_favorited" => true

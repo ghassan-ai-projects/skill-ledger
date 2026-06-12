@@ -40,20 +40,21 @@ class Api::V1::LedgerEntriesControllerTest < ActionDispatch::IntegrationTest
     assert_equal @bob.name, entry["to_account"]["name"]
   end
 
-  test "GET /api/v1/ledger includes ledger entry created by skill execution" do
-    post api_v1_execute_skill_url(@data_analysis),
-         headers: headers_with_auth(@charlie), as: :json
-    assert_response :created
-    execution = Execution.last
-
-    patch complete_api_v1_execution_url(execution), headers: headers_with_auth(@alice), as: :json
-    assert_response :ok
+  test "GET /api/v1/ledger includes ledger entry created by skill purchase" do
+    listing = create_verified_skill_listing(
+      name: "Deterministic Pricing Review",
+      slug: "deterministic-pricing-review",
+      author: @alice,
+      price: 35,
+      description: "Review a pricing payload for deterministic rule violations."
+    )
+    SkillPurchaseService.new(buyer: @charlie).call(skill_id: listing[:skill].id, version: listing[:version].version)
 
     get api_v1_ledger_index_url, headers: headers_with_auth(@alice)
     assert_response :success
     assert_equal 3, response.parsed_body["ledger_entries"].length
 
-    new_entry = response.parsed_body["ledger_entries"].find { |e| e["entry_type"] == "skill_execution" }
+    new_entry = response.parsed_body["ledger_entries"].find { |e| e["entry_type"] == "skill_purchase" }
     assert_not_nil new_entry
     assert_equal @charlie.id, new_entry["from_account"]["id"]
     assert_equal @alice.id, new_entry["to_account"]["id"]

@@ -61,18 +61,24 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Alice", skill["author"]["name"]
   end
 
-  test "GET /api/v1/skills includes average_rating and review_count" do
+  test "GET /api/v1/skills includes listing and purchase metadata" do
     get api_v1_skills_url, headers: headers_with_auth(@alice)
     assert_response :success
 
     skill = response.parsed_body["skills"].find { |s| s["name"] == "Data Analysis" }
-    assert skill.key?("average_rating")
-    assert skill.key?("review_count")
+    assert skill.key?("slug")
+    assert skill.key?("listing_status")
+    assert skill.key?("price")
+    assert skill.key?("latest_verified_version")
     assert skill.key?("favorite_count")
     assert skill.key?("is_favorited")
   end
 
   test "GET /api/v1/skills returns empty list when no skills exist" do
+    Purchase.delete_all
+    SkillVerification.delete_all
+    SkillArtifact.delete_all
+    SkillVersion.delete_all
     Skill.destroy_all
 
     get api_v1_skills_url, headers: headers_with_auth(@alice)
@@ -228,17 +234,17 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Alice", body["author"]["name"]
   end
 
-  test "GET /api/v1/skills/:id includes average_rating and review_count" do
+  test "GET /api/v1/skills/:id includes listing metadata" do
     get api_v1_skill_url(@data_analysis), headers: headers_with_auth(@alice)
     assert_response :success
 
     body = response.parsed_body
-    assert body.key?("average_rating")
-    assert body.key?("review_count")
+    assert body.key?("slug")
+    assert body.key?("listing_status")
+    assert body.key?("price")
+    assert body.key?("latest_verified_version")
     assert body.key?("favorite_count")
     assert body.key?("is_favorited")
-    assert_equal 4.0, body["average_rating"]
-    assert_equal 1, body["review_count"]
     assert_equal false, body["is_favorited"] # Alice did not favorite her own skill
   end
 
@@ -265,8 +271,7 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
           name: "Test Skill",
           description: "A test",
           author_id: @alice.id,
-          price_per_call: 10.00,
-          stake_amount: 50.00
+          price: 10.00
         }
       }, headers: headers_with_auth(@alice), as: :json
     end
@@ -283,8 +288,7 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
         skill: {
           name: "Orphan Skill",
           author_id: 99999,
-          price_per_call: 10.00,
-          stake_amount: 50.00
+          price: 10.00
         }
       }, headers: headers_with_auth(@alice), as: :json
     end
@@ -292,28 +296,12 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     assert_equal @alice.id, response.parsed_body["author_id"]
   end
 
-  test "POST /api/v1/skills returns error when author has insufficient balance for stake" do
-    assert_no_difference("Skill.count") do
-      post api_v1_skills_url, params: {
-        skill: {
-          name: "Unstakeable Skill",
-          author_id: @bob.id,
-          price_per_call: 10.00,
-          stake_amount: 9999.00
-        }
-      }, headers: headers_with_auth(@alice), as: :json
-    end
-    assert_response :unprocessable_entity
-    assert_includes response.parsed_body["error"], "insufficient balance"
-  end
-
   test "POST /api/v1/skills returns validation errors for missing name" do
     assert_no_difference("Skill.count") do
       post api_v1_skills_url, params: {
         skill: {
           author_id: @alice.id,
-          price_per_call: 10.00,
-          stake_amount: 50.00
+          price: 10.00
         }
       }, headers: headers_with_auth(@alice), as: :json
     end
@@ -327,8 +315,7 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
         skill: {
           name: "Negative Price",
           author_id: @alice.id,
-          price_per_call: -10.00,
-          stake_amount: 50.00
+          price: -10.00
         }
       }, headers: headers_with_auth(@alice), as: :json
     end

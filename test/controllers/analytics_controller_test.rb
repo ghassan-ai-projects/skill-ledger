@@ -18,13 +18,13 @@ class Api::V1::AnalyticsControllerTest < ActionDispatch::IntegrationTest
     body = response.parsed_body
     assert_equal @alice.id, body["author"]["id"]
     assert_equal "Alice", body["author"]["name"]
-    assert_equal 1, body["total_skills"]      # Alice has data_analysis
-    assert_equal 1, body["total_executions"]  # execution_one for data_analysis
-    assert body.key?("total_earnings")
-    assert body.key?("total_slashed")
-    assert body.key?("execution_breakdown")
+    assert_equal 1, body["total_skills"]
+    assert_equal 1, body["listed_skills"]
+    assert_equal 1, body["verified_versions"]
+    assert_equal 1, body["total_purchases"]
+    assert_equal 50.0, body["total_revenue"]
     assert body.key?("top_skills")
-    assert body.key?("recent_executions")
+    assert body.key?("recent_purchases")
   end
 
   test "GET /api/v1/authors/:id/analytics returns 403 for another author's data" do
@@ -38,16 +38,6 @@ class Api::V1::AnalyticsControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  test "GET /api/v1/authors/:id/analytics includes execution_breakdown" do
-    get analytics_api_v1_author_url(@alice), headers: headers_with_auth(@alice)
-    assert_response :success
-
-    breakdown = response.parsed_body["execution_breakdown"]
-    assert breakdown.key?("completed")
-    assert breakdown.key?("failed")
-    assert breakdown.key?("pending")
-  end
-
   test "GET /api/v1/authors/:id/analytics includes top_skills" do
     get analytics_api_v1_author_url(@alice), headers: headers_with_auth(@alice)
     assert_response :success
@@ -57,53 +47,44 @@ class Api::V1::AnalyticsControllerTest < ActionDispatch::IntegrationTest
     assert top.any? { |s| s["name"] == "Data Analysis" }
   end
 
-  test "GET /api/v1/authors/:id/analytics top_skills includes revenue and rating" do
+  test "GET /api/v1/authors/:id/analytics top_skills includes purchase stats" do
     get analytics_api_v1_author_url(@alice), headers: headers_with_auth(@alice)
     assert_response :success
 
     top = response.parsed_body["top_skills"]
-    assert top[0].key?("execution_count")
+    assert top[0].key?("purchase_count")
     assert top[0].key?("total_revenue")
   end
 
-  test "GET /api/v1/authors/:id/analytics includes recent_executions" do
+  test "GET /api/v1/authors/:id/analytics includes recent_purchases" do
     get analytics_api_v1_author_url(@alice), headers: headers_with_auth(@alice)
     assert_response :success
 
-    recent = response.parsed_body["recent_executions"]
+    recent = response.parsed_body["recent_purchases"]
     assert_instance_of Array, recent
     assert recent.any? { |e| e["skill_name"] == "Data Analysis" }
   end
 
-  test "GET /api/v1/authors/:id/analytics recent_executions has correct keys" do
+  test "GET /api/v1/authors/:id/analytics recent_purchases has correct keys" do
     get analytics_api_v1_author_url(@alice), headers: headers_with_auth(@alice)
     assert_response :success
 
-    recent = response.parsed_body["recent_executions"].first
+    recent = response.parsed_body["recent_purchases"].first
     assert recent.key?("skill_name")
     assert recent.key?("buyer_name")
     assert recent.key?("status")
     assert recent.key?("amount")
-    assert recent.key?("timestamp")
+    assert recent.key?("purchased_at")
   end
 
-  test "GET /api/v1/authors/:id/analytics returns zeros for author with no executions" do
+  test "GET /api/v1/authors/:id/analytics returns zeros for author with no purchases" do
     get analytics_api_v1_author_url(@charlie), headers: headers_with_auth(@charlie)
     assert_response :success
 
     body = response.parsed_body
     assert_equal 0, body["total_skills"]
-    assert_equal 0, body["total_executions"]
-    assert_equal 0.0, body["total_earnings"]
-    assert_equal 0.0, body["total_slashed"]
-    assert_nil body["average_rating"]
-  end
-
-  test "GET /api/v1/authors/:id/analytics includes average_rating" do
-    # Alice's skill (data_analysis) has a review with rating 4
-    get analytics_api_v1_author_url(@alice), headers: headers_with_auth(@alice)
-    assert_response :success
-    assert_equal 4.0, response.parsed_body["average_rating"]
+    assert_equal 0, body["total_purchases"]
+    assert_equal 0.0, body["total_revenue"]
   end
 
   # ── Analytics Earnings ─────────────────────────────────────────
@@ -117,6 +98,7 @@ class Api::V1::AnalyticsControllerTest < ActionDispatch::IntegrationTest
     assert body.key?("total_earnings")
     assert body.key?("average_per_day")
     assert body.key?("best_skill")
+    assert_equal 50.0, body["total_earnings"]
   end
 
   test "GET /api/v1/authors/:id/earnings returns 403 for another author" do

@@ -1,13 +1,15 @@
 data_analysis:
   name: Data Analysis
+  slug: data-analysis
   description: Analyze datasets and generate reports
   author: alice
-  stake_amount: 100.00
-  price_per_call: 50.00
+  price: 50.00
+  listing_status: listed
 
 code_review:
   name: Code Review
+  slug: code-review
   description: Review code for bugs and best practices
   author: bob
-  stake_amount: 50.00
-  price_per_call: 25.00
+  price: 25.00
+  listing_status: listed

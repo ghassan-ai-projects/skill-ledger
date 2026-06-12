@@ -1,9 +1,0 @@
-review_one:
-  execution: execution_one
-  rating: 4
-  review_text: Great analysis, very thorough!
-
-review_two:
-  execution: execution_two
-  rating: 5
-  review_text: Excellent code review with detailed suggestions.

@@ -37,7 +37,6 @@ class Api::V1::LibraryControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /api/v1/me/library includes purchased skills" do
-    # Bob bought data_analysis (execution_one)
     get api_v1_me_library_url, headers: headers_with_auth(@bob)
     assert_response :success
 
@@ -45,16 +44,17 @@ class Api::V1::LibraryControllerTest < ActionDispatch::IntegrationTest
     assert purchased.any? { |s| s["name"] == "Data Analysis" }
   end
 
-  test "GET /api/v1/me/library purchased includes last_execution_timestamp" do
+  test "GET /api/v1/me/library purchased includes acquisition metadata" do
     get api_v1_me_library_url, headers: headers_with_auth(@bob)
     assert_response :success
 
     purchased = response.parsed_body["purchased"]
     skill = purchased.find { |s| s["name"] == "Data Analysis" }
-    assert_not_nil skill["last_execution_timestamp"]
+    assert_not_nil skill["purchased_version"]
+    assert_not_nil skill["purchase_status"]
   end
 
-  test "GET /api/v1/me/library returns correct structure for user with purchases" do
+  test "GET /api/v1/me/library returns correct structure for user without purchases" do
     get api_v1_me_library_url, headers: headers_with_auth(@charlie)
     assert_response :success
 
@@ -62,8 +62,7 @@ class Api::V1::LibraryControllerTest < ActionDispatch::IntegrationTest
     assert_instance_of Array, body["favorites"]
     assert_instance_of Array, body["purchased"]
     assert_instance_of Array, body["my_skills"]
-    # Charlie purchased code_review via execution_two fixture
-    assert body["purchased"].any? { |s| s["name"] == "Code Review" }
+    assert_equal [], body["purchased"]
   end
 
   test "GET /api/v1/me/library skills include favorite_count and is_favorited" do

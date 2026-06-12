@@ -1,0 +1,11 @@
+data_analysis_v1:
+  skill: data_analysis
+  version: 1.0.0
+  changelog: Initial version
+  status: verified
+
+code_review_v1:
+  skill: code_review
+  version: 1.0.0
+  changelog: Initial version
+  status: draft

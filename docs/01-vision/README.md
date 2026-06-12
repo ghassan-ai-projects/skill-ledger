@@ -1,5 +1,24 @@
 # SkillLedger — Vision & Mission
 
+## Canonical Documents
+
+Read these first:
+
+- [Clarified Product Vision](./clarified-product-vision.md)
+- [Vision Correction Decision](../03-research/vision-correction-decision-2026-06-10.md)
+- [Working Backwards v2](./working-backwards.md)
+
+## Status Note
+
+`working-backwards.md` captures the original strategic ambition.
+
+The canonical scope correction is now:
+- SkillLedger verifies and sells skill artifacts
+- buyer agents execute locally
+- SkillLedger is not the hosted runtime
+
+The rest of this file is historical product framing from the earlier hosted-settlement interpretation.
+
 > **SkillLedger is the settlement layer for the agent economy.**  
 > Any agent that discovers another agent through a directory can settle payments through SkillLedger with cryptographic guarantees.
 

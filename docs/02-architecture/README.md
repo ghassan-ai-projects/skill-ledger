@@ -1,5 +1,18 @@
 # SkillLedger Architecture
 
+## Canonical Documents
+
+Read these first:
+
+- [Clarified Domain And Architecture](./clarified-domain-and-architecture.md)
+- [Refactor Plan — Client-Side Skill Acquisition Model](../04-roadmap/refactor-plan-client-side-acquisition.md)
+
+## Status Note
+
+The architecture described below reflects the earlier hosted-execution MVP shape.
+
+It is useful as implementation history, but it is **not** the preferred target architecture after the scope clarification.
+
 **Status:** MVP (Phase 4 — Complete)  
 **Stack:** Rails 8.1 API-only, SQLite3, Ruby 3.3.11
 

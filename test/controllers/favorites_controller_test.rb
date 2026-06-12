@@ -106,11 +106,11 @@ class Api::V1::FavoritesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     skill = response.parsed_body["favorites"].first
+    assert skill.key?("slug")
     assert skill.key?("name")
     assert skill.key?("description")
     assert skill.key?("author")
-    assert skill.key?("average_rating")
-    assert skill.key?("review_count")
+    assert skill.key?("price")
     assert skill.key?("favorite_count")
     assert_equal true, skill["is_favorited"]
   end
