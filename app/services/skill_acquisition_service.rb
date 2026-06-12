@@ -20,7 +20,8 @@ class SkillAcquisitionService
       artifact: {
         type: artifact.artifact_type,
         checksum: artifact.checksum,
-        manifest: artifact.manifest
+        manifest: artifact.manifest,
+        files: artifact.manifest["files"] || []
       },
       verification: {
         status: verification.status,

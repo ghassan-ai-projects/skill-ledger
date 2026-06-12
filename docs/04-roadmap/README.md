@@ -8,6 +8,7 @@ For the current acquisition refactor state, use:
 - [Implementation Tracker](./implementation-tracker.md)
 - [Refactor Plan — Client-Side Skill Acquisition Model](./refactor-plan-client-side-acquisition.md)
 - [Detailed Refactor Execution Plan](./detailed-refactor-execution-plan.md)
+- [MCP-First Migration Plan](./mcp-first-migration-plan.md)
 
 ## Completed Phases
 

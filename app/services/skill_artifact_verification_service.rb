@@ -62,6 +62,7 @@ class SkillArtifactVerificationService
       manifest_valid: manifest.is_a?(Hash),
       required_fields_present: required_fields_present?(manifest),
       runtime_client: manifest.is_a?(Hash) && manifest["runtime"] == "client",
+      bundled_files_valid: bundled_files_valid?(manifest),
       version_matches: manifest.is_a?(Hash) && manifest["version"] == @skill_version.version,
       checksum_matches: artifact.present? && artifact.checksum == self.class.checksum_for_manifest(manifest || {})
     }
@@ -71,6 +72,21 @@ class SkillArtifactVerificationService
     return false unless manifest.is_a?(Hash)
 
     REQUIRED_MANIFEST_FIELDS.all? { |field| manifest[field].present? }
+  end
+
+  def bundled_files_valid?(manifest)
+    return false unless manifest.is_a?(Hash)
+
+    files = manifest["files"]
+    return true if files.blank?
+    return false unless files.is_a?(Array)
+
+    files.all? do |file|
+      file.is_a?(Hash) &&
+        file["path"].present? &&
+        file["content"].present? &&
+        file["media_type"].present?
+    end
   end
 
   def failure_reason_for(checks)

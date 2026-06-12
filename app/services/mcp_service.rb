@@ -154,5 +154,4 @@ class McpService
          .select { |version| version.status == "verified" && version.skill_verification&.status == "verified" && version.skill_artifact.present? }
          .max_by(&:created_at)
   end
-
 end

@@ -5,7 +5,10 @@ Rails.application.routes.draw do
 
   namespace :api do
     namespace :v1 do
-      resources :skills, only: %i[index show create]
+      resources :skills, only: %i[index show create] do
+        post :versions, on: :member, action: :create_version
+        patch :listing_status, on: :member, action: :update_listing_status
+      end
 
       resources :ledger, only: %i[index], controller: "ledger_entries"
 

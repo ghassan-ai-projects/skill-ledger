@@ -120,6 +120,5 @@ class VerifiedSkillAcquisitionE2ETest < ActionDispatch::IntegrationTest
     assert entitlement["acquired_at"].present?
     assert_equal buyer.id, entitlement["buyer_id"]
     assert_equal purchase_id, entitlement["purchase_id"]
-
   end
 end

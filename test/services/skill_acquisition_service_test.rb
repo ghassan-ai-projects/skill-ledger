@@ -24,6 +24,7 @@ class SkillAcquisitionServiceTest < ActiveSupport::TestCase
 
     assert_equal "mcp_tool_manifest", result[:artifact][:type]
     assert_equal "deterministic-pricing-review", result[:artifact][:manifest]["name"]
+    assert_equal [], result[:artifact][:files]
     assert_equal "verified", result[:verification][:status]
     assert_equal @purchase.id, result[:entitlement][:purchase_id]
     assert result[:entitlement][:acquired_at].present?

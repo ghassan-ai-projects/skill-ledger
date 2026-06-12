@@ -13,6 +13,7 @@ end
 require_relative "../config/environment"
 require "rails/test_help"
 require "webmock/minitest"
+require "pathname"
 
 module ActiveSupport
   class TestCase
@@ -37,7 +38,7 @@ module ActiveSupport
       headers.merge("X-API-Key" => account.api_key)
     end
 
-    def create_verified_skill_listing(name:, slug:, author:, price:, description:, version: "1.0.0")
+    def create_verified_skill_listing(name:, slug:, author:, price:, description:, version: "1.0.0", entrypoint: "pricing_review.evaluate", file_bundle: [])
       skill = Skill.create!(
         name: name,
         slug: slug,
@@ -58,7 +59,7 @@ module ActiveSupport
         "description" => description,
         "version" => version,
         "runtime" => "client",
-        "entrypoint" => "pricing_review.evaluate",
+        "entrypoint" => entrypoint,
         "input_schema" => {
           "type" => "object",
           "required" => [ "items" ],
@@ -68,7 +69,8 @@ module ActiveSupport
         },
         "output_schema" => {
           "type" => "object"
-        }
+        },
+        "files" => file_bundle
       }
 
       artifact = SkillArtifact.create!(
@@ -86,6 +88,40 @@ module ActiveSupport
         artifact: artifact.reload,
         verification: verification.reload
       }
+    end
+
+    def vendored_alms_bundle_root
+      Rails.root.join("test", "fixtures", "alms_bundle")
+    end
+
+    def read_vendored_alms_file(relative_path)
+      path = vendored_alms_bundle_root.join(relative_path)
+      raise "Expected vendored ALMS file at #{path}" unless path.exist?
+
+      path.read
+    end
+
+    def build_alms_file_bundle(*relative_paths)
+      relative_paths.map do |relative_path|
+        {
+          "path" => relative_path,
+          "media_type" => media_type_for(relative_path),
+          "content" => read_vendored_alms_file(relative_path)
+        }
+      end
+    end
+
+    def media_type_for(relative_path)
+      extension = Pathname(relative_path).extname
+
+      case extension
+      when ".md"
+        "text/markdown"
+      when ".py"
+        "text/x-python"
+      else
+        "text/plain"
+      end
     end
   end
 end
