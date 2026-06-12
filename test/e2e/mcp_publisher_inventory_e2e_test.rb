@@ -9,7 +9,7 @@ class McpPublisherInventoryE2ETest < ActionDispatch::IntegrationTest
     "scripts/push-local-learnings.py"
   ].freeze
 
-  test "author can manage draft inventory through MCP and publish a discoverable version through the transitional REST path" do
+  test "author can manage draft inventory, publish a version, and list it publicly through MCP" do
     author = accounts(:alice)
     buyer = accounts(:charlie)
 
@@ -51,21 +51,30 @@ class McpPublisherInventoryE2ETest < ActionDispatch::IntegrationTest
     assert_equal "draft", created_inventory_skill["listing_status"]
     assert_equal [], created_inventory_skill["versions"]
 
-    post versions_api_v1_skill_url(skill_id),
-         params: version_upload_payload(
-           version: "1.0.0",
-           changelog: "Initial ALMS learning workflow release",
-           manifest: alms_manifest(
-             slug: skill_slug,
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "publisher-version-publish",
+           method: "skills/version.publish",
+           params: {
+             skill_id: skill_id,
              version: "1.0.0",
-             entrypoint: "scripts/push-local-learnings.py",
-             files: build_alms_file_bundle("skill/alms-learning-SKILL-v2.1.md", *ALMS_SHARED_FILES)
-           )
-         ),
+             changelog: "Initial ALMS learning workflow release",
+             artifact: {
+               artifact_type: "mcp_tool_manifest",
+               manifest: alms_manifest(
+                 slug: skill_slug,
+                 version: "1.0.0",
+                 entrypoint: "scripts/push-local-learnings.py",
+                 files: build_alms_file_bundle("skill/alms-learning-SKILL-v2.1.md", *ALMS_SHARED_FILES)
+               )
+             }
+           }
+         },
          headers: headers_with_auth(author), as: :json
 
-    assert_response :created
-    publish_body = response.parsed_body
+    assert_response :success
+    publish_body = response.parsed_body.dig("result", "publication")
     assert_equal "verified", publish_body.dig("version", "status")
     assert_equal "verified", publish_body.dig("verification", "status")
 
@@ -109,16 +118,20 @@ class McpPublisherInventoryE2ETest < ActionDispatch::IntegrationTest
     assert_equal "verified", published_inventory_skill.dig("latest_version", "verification_status")
     assert_equal [ "1.0.0" ], published_inventory_skill["versions"].map { |version| version["version"] }
 
-    patch listing_status_api_v1_skill_url(skill_id),
-          params: {
-            skill: {
-              listing_status: "listed"
-            }
-          },
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "publisher-listing-set-status",
+           method: "skills/listing.set_status",
+           params: {
+             skill_id: skill_id,
+             listing_status: "listed"
+           }
+         },
           headers: headers_with_auth(author), as: :json
 
     assert_response :success
-    assert_equal "listed", response.parsed_body["listing_status"]
+    assert_equal "listed", response.parsed_body.dig("result", "skill", "listing_status")
 
     post "/api/v1/mcp",
          params: {
@@ -159,26 +172,35 @@ class McpPublisherInventoryE2ETest < ActionDispatch::IntegrationTest
     skill_id = created_skill["id"]
     skill_slug = created_skill["slug"]
 
-    post versions_api_v1_skill_url(skill_id),
-         params: version_upload_payload(
-           version: "1.0.0",
-           changelog: "Broken initial release",
-           manifest: alms_manifest(
-             slug: skill_slug,
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "publisher-version-publish-rejected",
+           method: "skills/version.publish",
+           params: {
+             skill_id: skill_id,
              version: "1.0.0",
-             entrypoint: "scripts/push-local-learnings.py",
-             files: [
-               {
-                 "path" => "skill/alms-learning-SKILL-v2.1.md",
-                 "media_type" => "text/markdown"
-               }
-             ]
-           )
-         ),
+             changelog: "Broken initial release",
+             artifact: {
+               artifact_type: "mcp_tool_manifest",
+               manifest: alms_manifest(
+                 slug: skill_slug,
+                 version: "1.0.0",
+                 entrypoint: "scripts/push-local-learnings.py",
+                 files: [
+                   {
+                     "path" => "skill/alms-learning-SKILL-v2.1.md",
+                     "media_type" => "text/markdown"
+                   }
+                 ]
+               )
+             }
+           }
+         },
          headers: headers_with_auth(author), as: :json
 
-    assert_response :created
-    rejected_publish_body = response.parsed_body
+    assert_response :success
+    rejected_publish_body = response.parsed_body.dig("result", "publication")
     assert_equal "rejected", rejected_publish_body.dig("version", "status")
     assert_equal "rejected", rejected_publish_body.dig("verification", "status")
 
@@ -214,21 +236,7 @@ class McpPublisherInventoryE2ETest < ActionDispatch::IntegrationTest
     listed_ids = response.parsed_body.dig("result", "skills").map { |skill| skill["id"] }
     assert_not_includes listed_ids, skill_id
   end
-
   private
-
-  def version_upload_payload(version:, changelog:, manifest:)
-    {
-      version: {
-        version: version,
-        changelog: changelog,
-        artifact: {
-          artifact_type: "mcp_tool_manifest",
-          manifest: manifest
-        }
-      }
-    }
-  end
 
   def alms_manifest(slug:, version:, entrypoint:, files:)
     {

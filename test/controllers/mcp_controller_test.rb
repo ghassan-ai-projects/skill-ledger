@@ -154,6 +154,88 @@ class Api::V1::McpControllerTest < ActionDispatch::IntegrationTest
     assert_equal "rejected", owned_skill["versions"].first["verification_status"]
   end
 
+  test "POST /api/v1/mcp publishes a version for an owned skill" do
+    draft_skill = Skill.create!(
+      name: "Publisher MCP Flow",
+      description: "Version publishing over MCP",
+      author: @alice,
+      price: 21,
+      listing_status: "draft"
+    )
+
+    assert_difference("SkillVersion.count", 1) do
+      post api_v1_mcp_url,
+           params: {
+             jsonrpc: "2.0",
+             id: "skills-version-publish",
+             method: "skills/version.publish",
+             params: {
+               skill_id: draft_skill.id,
+               version: "1.0.0",
+               changelog: "Initial MCP release",
+               artifact: {
+                 artifact_type: "mcp_tool_manifest",
+                 manifest: {
+                   name: draft_skill.slug,
+                   description: draft_skill.description,
+                   version: "1.0.0",
+                   runtime: "client",
+                   entrypoint: "publisher_mcp_flow.run",
+                   input_schema: { type: "object" },
+                   output_schema: { type: "object" },
+                   files: [
+                     {
+                       path: "skill/SKILL.md",
+                       media_type: "text/markdown",
+                       content: "# Publisher MCP Flow"
+                     }
+                   ]
+                 }
+               }
+             }
+           },
+           headers: headers_with_auth(@alice), as: :json
+    end
+
+    assert_response :success
+    body = response.parsed_body
+    assert_equal draft_skill.id, body["result"]["publication"]["skill_id"]
+    assert_equal "1.0.0", body["result"]["publication"]["version"]["version"]
+    assert_equal "verified", body["result"]["publication"]["version"]["status"]
+    assert_equal "verified", body["result"]["publication"]["verification"]["status"]
+  end
+
+  test "POST /api/v1/mcp rejects version publish for someone else's skill" do
+    post api_v1_mcp_url,
+         params: {
+           jsonrpc: "2.0",
+           id: "skills-version-publish-forbidden",
+           method: "skills/version.publish",
+           params: {
+             skill_id: @pricing_skill[:skill].id,
+             version: "2.0.0",
+             artifact: {
+               manifest: {
+                 name: @pricing_skill[:skill].slug,
+                 description: @pricing_skill[:skill].description,
+                 version: "2.0.0",
+                 runtime: "client",
+                 entrypoint: "pricing_review.evaluate_v2",
+                 input_schema: { type: "object" },
+                 output_schema: { type: "object" },
+                 files: []
+               }
+             }
+           }
+         },
+         headers: headers_with_auth(@charlie), as: :json
+
+    assert_response :unprocessable_entity
+    body = response.parsed_body
+    assert_equal(-32001, body["error"]["code"])
+    assert_includes body["error"]["message"], "do not own"
+  end
+
   test "POST /api/v1/mcp gets a verified skill detail" do
     post api_v1_mcp_url,
          params: {
@@ -217,6 +299,53 @@ class Api::V1::McpControllerTest < ActionDispatch::IntegrationTest
     assert_equal "rejected", body["result"]["version"]["verification"]["status"]
     assert_equal false, body["result"]["version"]["verification"]["checks"]["bundled_files_valid"]
     assert_equal 1, body["result"]["version"]["artifact"]["file_count"]
+  end
+
+  test "POST /api/v1/mcp changes listing status for an owned skill" do
+    post api_v1_mcp_url,
+         params: {
+           jsonrpc: "2.0",
+           id: "skills-listing-set-status",
+           method: "skills/listing.set_status",
+           params: {
+             skill_id: @pricing_skill[:skill].id,
+             listing_status: "suspended"
+           }
+         },
+         headers: headers_with_auth(@alice), as: :json
+
+    assert_response :success
+    body = response.parsed_body
+
+    assert_equal "suspended", body["result"]["skill"]["listing_status"]
+    assert_equal @pricing_skill[:skill].id, body["result"]["skill"]["id"]
+  end
+
+  test "POST /api/v1/mcp rejects listing status change without a verified version" do
+    draft_skill = Skill.create!(
+      name: "Never Listed",
+      description: "No verified versions yet",
+      author: @alice,
+      price: 12,
+      listing_status: "draft"
+    )
+
+    post api_v1_mcp_url,
+         params: {
+           jsonrpc: "2.0",
+           id: "skills-listing-set-status-invalid",
+           method: "skills/listing.set_status",
+           params: {
+             skill_id: draft_skill.id,
+             listing_status: "listed"
+           }
+         },
+         headers: headers_with_auth(@alice), as: :json
+
+    assert_response :unprocessable_entity
+    body = response.parsed_body
+    assert_equal(-32602, body["error"]["code"])
+    assert_includes body["error"]["message"], "verified version"
   end
 
   test "POST /api/v1/mcp rejects author version lookup for someone else's skill" do

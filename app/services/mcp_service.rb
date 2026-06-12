@@ -20,8 +20,12 @@ class McpService
       success(request_id, skill: create_skill(params))
     when "skills/mine.list"
       success(request_id, skills: list_owned_skills)
+    when "skills/version.publish"
+      success(request_id, publication: publish_owned_version(params))
     when "skills/version.get"
       success(request_id, version: get_owned_version(params))
+    when "skills/listing.set_status"
+      success(request_id, skill: set_owned_listing_status(params))
     when "skills/list"
       success(request_id, skills: list_skills)
     when "skills/get"
@@ -117,6 +121,47 @@ class McpService
     serialize_owned_version(skill, version)
   rescue ActiveRecord::RecordNotFound
     raise Error.new("Version not found", code: -32602)
+  end
+
+  def publish_owned_version(params)
+    skill = owned_skill_from_params(params)
+    version = params[:version] || params["version"]
+    changelog = params[:changelog] || params["changelog"]
+    artifact = params[:artifact] || params["artifact"]
+
+    raise Error.new("version is required", code: -32602) if version.blank?
+    raise Error.new("artifact is required", code: -32602) if artifact.blank?
+
+    symbolized_artifact = {
+      artifact_type: artifact[:artifact_type] || artifact["artifact_type"],
+      manifest: artifact[:manifest] || artifact["manifest"]
+    }
+
+    SkillVersionRegistrationService.new(skill: skill, author: @current_account).call(
+      version: version,
+      changelog: changelog,
+      artifact: symbolized_artifact
+    )
+  rescue SkillVersionRegistrationService::AuthorizationError => e
+    raise Error.new(e.message, code: AUTHORIZATION_ERROR_CODE)
+  rescue SkillVersionRegistrationService::Error => e
+    raise Error.new(e.message, code: -32602)
+  end
+
+  def set_owned_listing_status(params)
+    skill = owned_skill_from_params(params)
+    listing_status = params[:listing_status] || params["listing_status"]
+    raise Error.new("listing_status is required", code: -32602) if listing_status.blank?
+
+    updated_skill = SkillListingStatusService.new(skill: skill, actor: @current_account).call(
+      listing_status: listing_status
+    )
+
+    serialize_owned_skill(updated_skill.reload)
+  rescue SkillListingStatusService::AuthorizationError => e
+    raise Error.new(e.message, code: AUTHORIZATION_ERROR_CODE)
+  rescue SkillListingStatusService::Error => e
+    raise Error.new(e.message, code: -32602)
   end
 
   def purchase_skill(params)
