@@ -113,4 +113,4 @@ The MCP endpoint mirrors the key authoring and buyer flows:
 - authoring: create, publish, inspect owned versions, change listing status
 - buyer side: list, inspect, purchase, acquire
 
-See [mcp-api.md](/Users/ghassan/my-projects/skill-ledger/documentation/mcp-api.md) for the current method catalog.
+See [mcp-api.md](mcp-api.md) for the current method catalog.

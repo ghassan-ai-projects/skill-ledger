@@ -49,9 +49,9 @@ bin/ci
 
 When changing user-facing behavior, update:
 
-- [README.md](/Users/ghassan/my-projects/skill-ledger/README.md) for the top-level story
+- [README.md](../README.md) for the top-level story
 - the relevant detailed file in `documentation/`
-- [openapi.yaml](/Users/ghassan/my-projects/skill-ledger/openapi.yaml) when the HTTP contract changes
+- [openapi.yaml](../openapi.yaml) when the HTTP contract changes
 
 ## Fixtures And Seeds
 

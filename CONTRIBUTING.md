@@ -4,8 +4,8 @@ Thanks for helping improve SkillLedger.
 
 ## Before You Start
 
-- read [README.md](/Users/ghassan/my-projects/skill-ledger/README.md)
-- skim [documentation/README.md](/Users/ghassan/my-projects/skill-ledger/documentation/README.md)
+- read [README.md](README.md)
+- skim [documentation/README.md](documentation/README.md)
 - open an issue before large changes so we can align on direction
 
 ## Development Setup
@@ -65,4 +65,4 @@ This repository treats the root README as the primary document and `documentatio
 
 ## Conduct
 
-By participating in this repository, you agree to follow the standards in [CODE_OF_CONDUCT.md](/Users/ghassan/my-projects/skill-ledger/CODE_OF_CONDUCT.md).
+By participating in this repository, you agree to follow the standards in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).

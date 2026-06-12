@@ -42,11 +42,11 @@ Rswag is mounted at:
 
 - `/api-docs`
 
-The source OpenAPI file is [openapi.yaml](/Users/ghassan/my-projects/skill-ledger/openapi.yaml).
+The source OpenAPI file is [openapi.yaml](../openapi.yaml).
 
 ## Production Packaging
 
-The repository includes a production Dockerfile at [Dockerfile](/Users/ghassan/my-projects/skill-ledger/Dockerfile).
+The repository includes a production Dockerfile at [Dockerfile](../Dockerfile).
 
 Notable points:
 

@@ -21,23 +21,23 @@ SkillLedger is intentionally not a hosted agent runtime. The current design assu
 - API key authentication via `X-API-Key`
 - REST endpoints for listings, library, favorites, analytics, reports, and ledger inspection
 - MCP-compatible JSON-RPC endpoint for agent-facing publishing and acquisition flows
-- OpenAPI description in [openapi.yaml](/Users/ghassan/my-projects/skill-ledger/openapi.yaml)
+- OpenAPI description in [openapi.yaml](openapi.yaml)
 - Minitest coverage for controllers, services, models, and end-to-end flows
 
 ## Documentation
 
-This README is the main entry point. Detailed documentation lives in [documentation/README.md](/Users/ghassan/my-projects/skill-ledger/documentation/README.md).
+This README is the main entry point. Detailed documentation lives in [documentation/README.md](documentation/README.md).
 
-- Product overview: [documentation/product-overview.md](/Users/ghassan/my-projects/skill-ledger/documentation/product-overview.md)
-- Getting started: [documentation/getting-started.md](/Users/ghassan/my-projects/skill-ledger/documentation/getting-started.md)
-- How it works: [documentation/how-it-works.md](/Users/ghassan/my-projects/skill-ledger/documentation/how-it-works.md)
-- Repository structure: [documentation/repository-structure.md](/Users/ghassan/my-projects/skill-ledger/documentation/repository-structure.md)
-- Configuration: [documentation/configuration.md](/Users/ghassan/my-projects/skill-ledger/documentation/configuration.md)
-- REST API: [documentation/rest-api.md](/Users/ghassan/my-projects/skill-ledger/documentation/rest-api.md)
-- MCP API: [documentation/mcp-api.md](/Users/ghassan/my-projects/skill-ledger/documentation/mcp-api.md)
-- Operations: [documentation/operations.md](/Users/ghassan/my-projects/skill-ledger/documentation/operations.md)
-- Security model: [documentation/security-model.md](/Users/ghassan/my-projects/skill-ledger/documentation/security-model.md)
-- Development workflow: [documentation/development.md](/Users/ghassan/my-projects/skill-ledger/documentation/development.md)
+- Product overview: [documentation/product-overview.md](documentation/product-overview.md)
+- Getting started: [documentation/getting-started.md](documentation/getting-started.md)
+- How it works: [documentation/how-it-works.md](documentation/how-it-works.md)
+- Repository structure: [documentation/repository-structure.md](documentation/repository-structure.md)
+- Configuration: [documentation/configuration.md](documentation/configuration.md)
+- REST API: [documentation/rest-api.md](documentation/rest-api.md)
+- MCP API: [documentation/mcp-api.md](documentation/mcp-api.md)
+- Operations: [documentation/operations.md](documentation/operations.md)
+- Security model: [documentation/security-model.md](documentation/security-model.md)
+- Development workflow: [documentation/development.md](documentation/development.md)
 
 The existing `docs/01-vision` through `docs/06-marketing` directories are kept as historical product, roadmap, and research material. The files listed above under `documentation/` are the public-facing documentation set for adopters and contributors.
 
@@ -165,16 +165,16 @@ bin/bundler-audit
 bin/ci
 ```
 
-See [CONTRIBUTING.md](/Users/ghassan/my-projects/skill-ledger/CONTRIBUTING.md) and [documentation/development.md](/Users/ghassan/my-projects/skill-ledger/documentation/development.md) for contributor guidance.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [documentation/development.md](documentation/development.md) for contributor guidance.
 
 ## Open Source Package
 
-- License: [LICENSE](/Users/ghassan/my-projects/skill-ledger/LICENSE)
-- Changelog: [CHANGELOG.md](/Users/ghassan/my-projects/skill-ledger/CHANGELOG.md)
-- Contributing: [CONTRIBUTING.md](/Users/ghassan/my-projects/skill-ledger/CONTRIBUTING.md)
-- Security policy: [SECURITY.md](/Users/ghassan/my-projects/skill-ledger/SECURITY.md)
-- Code of conduct: [CODE_OF_CONDUCT.md](/Users/ghassan/my-projects/skill-ledger/CODE_OF_CONDUCT.md)
-- Support: [SUPPORT.md](/Users/ghassan/my-projects/skill-ledger/SUPPORT.md)
+- License: [LICENSE](LICENSE)
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
+- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Security policy: [SECURITY.md](SECURITY.md)
+- Code of conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- Support: [SUPPORT.md](SUPPORT.md)
 
 ## Status
 

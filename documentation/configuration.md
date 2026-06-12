@@ -11,7 +11,7 @@ SkillLedger is a Rails API-only application. The default configuration is intent
 
 ## Database Configuration
 
-Database settings live in [config/database.yml](/Users/ghassan/my-projects/skill-ledger/config/database.yml).
+Database settings live in [config/database.yml](../config/database.yml).
 
 ### Development
 
@@ -43,7 +43,7 @@ API keys are generated automatically for new accounts.
 
 ## Pagination And Sorting Defaults
 
-These defaults are enforced in [app/controllers/api/v1/base_controller.rb](/Users/ghassan/my-projects/skill-ledger/app/controllers/api/v1/base_controller.rb):
+These defaults are enforced in [app/controllers/api/v1/base_controller.rb](../app/controllers/api/v1/base_controller.rb):
 
 - default page size: `20`
 - maximum page size: `100`
@@ -72,7 +72,7 @@ The current verifier also requires:
 
 ## OpenAPI And Swagger
 
-- OpenAPI source: [openapi.yaml](/Users/ghassan/my-projects/skill-ledger/openapi.yaml)
+- OpenAPI source: [openapi.yaml](../openapi.yaml)
 - mounted docs UI path: `/api-docs`
 
 ## CI
@@ -84,4 +84,4 @@ GitHub Actions currently runs:
 - RuboCop
 - Rails tests
 
-See [/.github/workflows/ci.yml](/Users/ghassan/my-projects/skill-ledger/.github/workflows/ci.yml).
+See [.github/workflows/ci.yml](../.github/workflows/ci.yml).

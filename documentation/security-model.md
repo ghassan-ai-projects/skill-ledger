@@ -66,4 +66,4 @@ If you plan to deploy this beyond local or experimental use, prioritize:
 
 ## Disclosure
 
-See [SECURITY.md](/Users/ghassan/my-projects/skill-ledger/SECURITY.md) for reporting guidance.
+See [SECURITY.md](../SECURITY.md) for reporting guidance.

@@ -4,11 +4,11 @@
 
 Start with:
 
-- [README.md](/Users/ghassan/my-projects/skill-ledger/README.md)
-- [documentation/README.md](/Users/ghassan/my-projects/skill-ledger/documentation/README.md)
-- [documentation/getting-started.md](/Users/ghassan/my-projects/skill-ledger/documentation/getting-started.md)
-- [documentation/rest-api.md](/Users/ghassan/my-projects/skill-ledger/documentation/rest-api.md)
-- [documentation/mcp-api.md](/Users/ghassan/my-projects/skill-ledger/documentation/mcp-api.md)
+- [README.md](README.md)
+- [documentation/README.md](documentation/README.md)
+- [documentation/getting-started.md](documentation/getting-started.md)
+- [documentation/rest-api.md](documentation/rest-api.md)
+- [documentation/mcp-api.md](documentation/mcp-api.md)
 
 ## When To Open An Issue
 
@@ -29,4 +29,4 @@ Include:
 - steps to reproduce
 - expected behavior versus actual behavior
 
-Security concerns should follow [SECURITY.md](/Users/ghassan/my-projects/skill-ledger/SECURITY.md), not public issues.
+Security concerns should follow [SECURITY.md](SECURITY.md), not public issues.

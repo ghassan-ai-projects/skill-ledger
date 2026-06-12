@@ -36,4 +36,4 @@ If you do not yet have a dedicated security inbox configured, use the repository
 - purchase operations mutate balances and create ledger entries transactionally
 - artifact verification is manifest-based and should not be treated as a sandbox or malware scan
 
-See [documentation/security-model.md](/Users/ghassan/my-projects/skill-ledger/documentation/security-model.md) for the current trust model and hardening guidance.
+See [documentation/security-model.md](documentation/security-model.md) for the current trust model and hardening guidance.

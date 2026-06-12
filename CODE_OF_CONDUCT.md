@@ -24,7 +24,7 @@ This code of conduct applies in repository discussions, issues, pull requests, a
 
 ## Reporting
 
-Please report unacceptable behavior through the contact path in [SECURITY.md](/Users/ghassan/my-projects/skill-ledger/SECURITY.md) or by reaching out privately to the maintainers if the issue is conduct-related rather than security-related.
+Please report unacceptable behavior through the contact path in [SECURITY.md](SECURITY.md) or by reaching out privately to the maintainers if the issue is conduct-related rather than security-related.
 
 ## Enforcement
 
