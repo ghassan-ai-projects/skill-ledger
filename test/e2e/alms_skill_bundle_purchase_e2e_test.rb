@@ -291,6 +291,284 @@ class AlmsSkillBundlePurchaseE2ETest < ActionDispatch::IntegrationTest
     assert_includes response.parsed_body.dig("error", "message"), "does not belong"
   end
 
+  test "non-author cannot upload a new version or change listing status" do
+    author = accounts(:alice)
+    intruder = accounts(:bob)
+    created_skill = create_skill_as(author)
+
+    post versions_api_v1_skill_url(created_skill["id"]),
+         params: {
+           version: {
+             version: "1.0.0",
+             changelog: "Unauthorized upload attempt",
+             artifact: {
+               artifact_type: "mcp_tool_manifest",
+               manifest: alms_manifest(
+                 slug: created_skill["slug"],
+                 version: "1.0.0",
+                 entrypoint: "scripts/push-local-learnings.py",
+                 files: build_alms_file_bundle("skill/alms-learning-SKILL-v2.1.md", *ALMS_SHARED_FILES)
+               )
+             }
+           }
+         },
+         headers: headers_with_auth(intruder), as: :json
+
+    assert_response :forbidden
+    assert_includes response.parsed_body["error"], "Only the skill author"
+
+    patch listing_status_api_v1_skill_url(created_skill["id"]),
+          params: {
+            skill: {
+              listing_status: "listed"
+            }
+          },
+          headers: headers_with_auth(intruder), as: :json
+
+    assert_response :forbidden
+    assert_includes response.parsed_body["error"], "Only the skill author"
+  end
+
+  test "duplicate version upload is rejected in the real publish flow" do
+    author = accounts(:alice)
+    created_skill = create_skill_as(author)
+
+    upload_version_as(
+      skill_id: created_skill["id"],
+      author: author,
+      version: "1.0.0",
+      changelog: "Initial release",
+      manifest: alms_manifest(
+        slug: created_skill["slug"],
+        version: "1.0.0",
+        entrypoint: "scripts/push-local-learnings.py",
+        files: build_alms_file_bundle("skill/alms-learning-SKILL-v2.1.md", *ALMS_SHARED_FILES)
+      )
+    )
+
+    post versions_api_v1_skill_url(created_skill["id"]),
+         params: {
+           version: {
+             version: "1.0.0",
+             changelog: "Duplicate release",
+             artifact: {
+               artifact_type: "mcp_tool_manifest",
+               manifest: alms_manifest(
+                 slug: created_skill["slug"],
+                 version: "1.0.0",
+                 entrypoint: "scripts/push-local-learnings.py",
+                 files: build_alms_file_bundle("skill/alms-learning-SKILL-v2.1.md", *ALMS_SHARED_FILES)
+               )
+             }
+           }
+         },
+         headers: headers_with_auth(author), as: :json
+
+    assert_response :unprocessable_entity
+    assert_includes response.parsed_body["error"], "Version has already been taken"
+  end
+
+  test "insufficient-balance buyer cannot purchase a listed verified skill" do
+    author = accounts(:alice)
+    poor_buyer = accounts(:charlie)
+    poor_buyer.update!(balance: 10)
+    created_skill = create_skill_as(author)
+
+    upload_version_as(
+      skill_id: created_skill["id"],
+      author: author,
+      version: "1.0.0",
+      changelog: "High price release",
+      manifest: alms_manifest(
+        slug: created_skill["slug"],
+        version: "1.0.0",
+        entrypoint: "scripts/push-local-learnings.py",
+        files: build_alms_file_bundle("skill/alms-learning-SKILL-v2.1.md", *ALMS_SHARED_FILES)
+      )
+    )
+    Skill.find(created_skill["id"]).update!(price: 55)
+    list_skill_as(skill_id: created_skill["id"], author: author)
+
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "insufficient-balance-purchase",
+           method: "skills/purchase",
+           params: {
+             skill_id: created_skill["id"],
+             version: "1.0.0"
+           }
+         },
+         headers: headers_with_auth(poor_buyer), as: :json
+
+    assert_response :unprocessable_entity
+    assert_equal(-32000, response.parsed_body.dig("error", "code"))
+    assert_includes response.parsed_body.dig("error", "message"), "insufficient balance"
+  end
+
+  test "suspended skill disappears from discovery and cannot be newly purchased" do
+    author = accounts(:alice)
+    buyer = accounts(:charlie)
+    created_skill = create_skill_as(author)
+
+    upload_version_as(
+      skill_id: created_skill["id"],
+      author: author,
+      version: "1.0.0",
+      changelog: "Initial release",
+      manifest: alms_manifest(
+        slug: created_skill["slug"],
+        version: "1.0.0",
+        entrypoint: "scripts/push-local-learnings.py",
+        files: build_alms_file_bundle("skill/alms-learning-SKILL-v2.1.md", *ALMS_SHARED_FILES)
+      )
+    )
+    list_skill_as(skill_id: created_skill["id"], author: author)
+
+    patch listing_status_api_v1_skill_url(created_skill["id"]),
+          params: {
+            skill: {
+              listing_status: "suspended"
+            }
+          },
+          headers: headers_with_auth(author), as: :json
+
+    assert_response :success
+    assert_equal "suspended", response.parsed_body["listing_status"]
+
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "suspended-list",
+           method: "skills/list"
+         },
+         headers: headers_with_auth(buyer), as: :json
+
+    assert_response :success
+    listed_ids = response.parsed_body.dig("result", "skills").map { |skill| skill["id"] }
+    assert_not_includes listed_ids, created_skill["id"]
+
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "suspended-purchase",
+           method: "skills/purchase",
+           params: {
+             skill_id: created_skill["id"],
+             version: "1.0.0"
+           }
+         },
+         headers: headers_with_auth(buyer), as: :json
+
+    assert_response :unprocessable_entity
+    assert_equal(-32000, response.parsed_body.dig("error", "code"))
+    assert_includes response.parsed_body.dig("error", "message"), "not publicly listed"
+  end
+
+  test "buyer can purchase v2 after v1 and both purchases acquire their own versioned artifacts" do
+    author = accounts(:alice)
+    buyer = accounts(:charlie)
+    created_skill = create_skill_as(author)
+
+    v1_upload = upload_version_as(
+      skill_id: created_skill["id"],
+      author: author,
+      version: "1.0.0",
+      changelog: "Initial release",
+      manifest: alms_manifest(
+        slug: created_skill["slug"],
+        version: "1.0.0",
+        entrypoint: "scripts/push-local-learnings.py",
+        files: build_alms_file_bundle("skill/alms-learning-SKILL-v2.1.md", *ALMS_SHARED_FILES)
+      )
+    )
+    list_skill_as(skill_id: created_skill["id"], author: author)
+
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "purchase-v1",
+           method: "skills/purchase",
+           params: {
+             skill_id: created_skill["id"],
+             version: "1.0.0"
+           }
+         },
+         headers: headers_with_auth(buyer), as: :json
+
+    assert_response :success
+    purchase_v1_id = response.parsed_body.dig("result", "purchase", "id")
+
+    version_two_files = build_alms_file_bundle("skill/alms-learning-SKILL-v2.1.md", *ALMS_SHARED_FILES)
+    version_two_files.find { |file| file["path"] == "prompts/prompts.md" }["content"] += "\n\n## F. Release Note\n\nVersion two bundle.\n"
+
+    v2_upload = upload_version_as(
+      skill_id: created_skill["id"],
+      author: author,
+      version: "2.0.0",
+      changelog: "Second release",
+      manifest: alms_manifest(
+        slug: created_skill["slug"],
+        version: "2.0.0",
+        entrypoint: "scripts/push-local-learnings.py",
+        files: version_two_files
+      )
+    )
+
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "purchase-v2",
+           method: "skills/purchase",
+           params: {
+             skill_id: created_skill["id"],
+             version: "2.0.0"
+           }
+         },
+         headers: headers_with_auth(buyer), as: :json
+
+    assert_response :success
+    purchase_v2_id = response.parsed_body.dig("result", "purchase", "id")
+    refute_equal purchase_v1_id, purchase_v2_id
+
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "acquire-v1",
+           method: "skills/acquire",
+           params: {
+             purchase_id: purchase_v1_id
+           }
+         },
+         headers: headers_with_auth(buyer), as: :json
+
+    assert_response :success
+    acquired_v1 = response.parsed_body.dig("result", "artifact")
+
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "acquire-v2",
+           method: "skills/acquire",
+           params: {
+             purchase_id: purchase_v2_id
+           }
+         },
+         headers: headers_with_auth(buyer), as: :json
+
+    assert_response :success
+    acquired_v2 = response.parsed_body.dig("result", "artifact")
+
+    assert_equal "1.0.0", acquired_v1.dig("manifest", "version")
+    assert_equal "2.0.0", acquired_v2.dig("manifest", "version")
+    assert_equal v1_upload.dig("artifact", "checksum"), acquired_v1["checksum"]
+    assert_equal v2_upload.dig("artifact", "checksum"), acquired_v2["checksum"]
+    refute_equal acquired_v1["checksum"], acquired_v2["checksum"]
+    refute_includes acquired_v1["files"].find { |file| file["path"] == "prompts/prompts.md" }["content"], "Version two bundle."
+    assert_includes acquired_v2["files"].find { |file| file["path"] == "prompts/prompts.md" }["content"], "Version two bundle."
+    assert_equal 2, buyer.purchases.where(skill_version_id: SkillVersion.where(skill_id: created_skill["id"]).select(:id)).count
+  end
+
   private
 
   def create_skill_as(author)
