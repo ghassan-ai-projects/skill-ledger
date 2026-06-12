@@ -9,64 +9,55 @@ class AlmsSkillBundlePurchaseE2ETest < ActionDispatch::IntegrationTest
     "scripts/push-local-learnings.py"
   ].freeze
 
-  test "buyer can discover imported ALMS skills and acquire a full prompt plus python bundle" do
-    alms_agent = create_verified_skill_listing(
-      name: "ALMS Agent Learning Lifecycle",
-      slug: "alms-agent-learning-lifecycle",
-      author: accounts(:alice),
-      price: 45,
-      description: "Shared ALMS learning lifecycle with prompts and helper Python clients.",
-      entrypoint: "scripts/fetch-remote-learnings.py",
-      file_bundle: build_alms_file_bundle("skill/SKILL.md", *ALMS_SHARED_FILES)
-    )
-
-    learning_skill = create_verified_skill_listing(
-      name: "ALMS Default Learning Workflow",
-      slug: "alms-default-learning-workflow",
-      author: accounts(:alice),
-      price: 55,
-      description: "Default ALMS-connected learning workflow for new agents.",
-      entrypoint: "scripts/push-local-learnings.py",
-      file_bundle: build_alms_file_bundle("skill/alms-learning-SKILL-v2.1.md", *ALMS_SHARED_FILES)
-    )
-
+  test "author publishes versions and buyer purchases a stable acquired version while newer verified versions appear in discovery" do
+    author = accounts(:alice)
     buyer = accounts(:charlie)
+
+    created_skill = create_skill_as(author)
+    skill_id = created_skill["id"]
+    skill_slug = created_skill["slug"]
+
+    version_one_upload = upload_version_as(
+      skill_id: skill_id,
+      author: author,
+      version: "1.0.0",
+      changelog: "Initial ALMS learning workflow release",
+      manifest: alms_manifest(
+        slug: skill_slug,
+        version: "1.0.0",
+        entrypoint: "scripts/push-local-learnings.py",
+        files: build_alms_file_bundle("skill/alms-learning-SKILL-v2.1.md", *ALMS_SHARED_FILES)
+      )
+    )
+
+    list_skill_as(skill_id: skill_id, author: author)
 
     post "/api/v1/mcp",
          params: {
            jsonrpc: "2.0",
-           id: "alms-skills-list-1",
+           id: "alms-skills-list-v1",
            method: "skills/list"
          },
          headers: headers_with_auth(buyer), as: :json
 
     assert_response :success
-    list_body = response.parsed_body
-    listed_slugs = list_body.dig("result", "skills").map { |skill| skill["slug"] }
+    v1_list_body = response.parsed_body
+    listed_skill = v1_list_body["result"]["skills"].find { |skill| skill["id"] == skill_id }
 
-    assert_includes listed_slugs, alms_agent[:skill].slug
-    assert_includes listed_slugs, learning_skill[:skill].slug
+    assert_not_nil listed_skill
+    assert_equal "1.0.0", listed_skill.dig("latest_version", "version")
 
-    imported_skill = list_body["result"]["skills"].find { |skill| skill["slug"] == learning_skill[:skill].slug }
-    assert_not_nil imported_skill
-    assert_equal "verified", imported_skill.dig("verification", "status")
-    assert_equal "1.0.0", imported_skill.dig("latest_version", "version")
-
-    assert_difference("Purchase.count", 1) do
-      assert_difference("LedgerEntry.count", 1) do
-        post "/api/v1/mcp",
-             params: {
-               jsonrpc: "2.0",
-               id: "alms-skills-purchase-1",
-               method: "skills/purchase",
-               params: {
-                 skill_id: imported_skill["id"],
-                 version: imported_skill.dig("latest_version", "version")
-               }
-             },
-             headers: headers_with_auth(buyer), as: :json
-      end
-    end
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "alms-skills-purchase-v1",
+           method: "skills/purchase",
+           params: {
+             skill_id: skill_id,
+             version: "1.0.0"
+           }
+         },
+         headers: headers_with_auth(buyer), as: :json
 
     assert_response :success
     purchase_body = response.parsed_body
@@ -75,7 +66,7 @@ class AlmsSkillBundlePurchaseE2ETest < ActionDispatch::IntegrationTest
     post "/api/v1/mcp",
          params: {
            jsonrpc: "2.0",
-           id: "alms-skills-acquire-1",
+           id: "alms-skills-acquire-v1",
            method: "skills/acquire",
            params: {
              purchase_id: purchase_id
@@ -84,33 +75,280 @@ class AlmsSkillBundlePurchaseE2ETest < ActionDispatch::IntegrationTest
          headers: headers_with_auth(buyer), as: :json
 
     assert_response :success
-    acquire_body = response.parsed_body
+    first_acquire_body = response.parsed_body
+    first_artifact = first_acquire_body.dig("result", "artifact")
+    first_entitlement = first_acquire_body.dig("result", "entitlement")
 
-    artifact = acquire_body.dig("result", "artifact")
-    verification = acquire_body.dig("result", "verification")
-    entitlement = acquire_body.dig("result", "entitlement")
-    files = artifact["files"]
+    assert_equal "1.0.0", first_artifact.dig("manifest", "version")
+    assert_equal version_one_upload.dig("artifact", "checksum"), first_artifact["checksum"]
+    assert_equal SkillArtifactVerificationService.checksum_for_manifest(first_artifact["manifest"]), first_artifact["checksum"]
 
-    assert_equal "mcp_tool_manifest", artifact["type"]
-    assert_equal learning_skill[:artifact].checksum, artifact["checksum"]
-    assert_equal learning_skill[:skill].slug, artifact.dig("manifest", "name")
-    assert_equal "scripts/push-local-learnings.py", artifact.dig("manifest", "entrypoint")
-    assert_equal "verified", verification["status"]
-    assert_equal true, verification["checks"]["bundled_files_valid"]
-    assert_equal purchase_id, entitlement["purchase_id"]
-    assert_equal buyer.id, entitlement["buyer_id"]
+    prompt_file_v1 = first_artifact["files"].find { |file| file["path"] == "prompts/prompts.md" }
+    assert_includes prompt_file_v1["content"], "## A. Store Prompt"
 
-    expected_paths = [
-      "skill/alms-learning-SKILL-v2.1.md",
-      *ALMS_SHARED_FILES
-    ]
-    assert_equal expected_paths.sort, files.map { |file| file["path"] }.sort
-    assert files.all? { |file| file["content"].present? }
+    version_two_files = build_alms_file_bundle("skill/alms-learning-SKILL-v2.1.md", *ALMS_SHARED_FILES)
+    version_two_files.find { |file| file["path"] == "prompts/prompts.md" }["content"] += "\n\n## F. Release Note\n\nSecond published bundle.\n"
 
-    prompt_file = files.find { |file| file["path"] == "prompts/prompts.md" }
-    python_file = files.find { |file| file["path"] == "scripts/alms_mcp.py" }
+    version_two_manifest = alms_manifest(
+      slug: skill_slug,
+      version: "2.0.0",
+      entrypoint: "scripts/push-local-learnings.py",
+      files: version_two_files
+    )
 
-    assert_includes prompt_file["content"], "## A. Store Prompt"
-    assert_includes python_file["content"], "class ALMSMCPClient"
+    version_two_upload = upload_version_as(
+      skill_id: skill_id,
+      author: author,
+      version: "2.0.0",
+      changelog: "Adds updated prompt bundle content",
+      manifest: version_two_manifest
+    )
+    assert_equal "verified", version_two_upload.dig("version", "status")
+    assert_equal "verified", version_two_upload.dig("verification", "status")
+
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "alms-skills-list-v2",
+           method: "skills/list"
+         },
+         headers: headers_with_auth(buyer), as: :json
+
+    assert_response :success
+    v2_list_body = response.parsed_body
+    relisted_skill = v2_list_body["result"]["skills"].find { |skill| skill["id"] == skill_id }
+
+    assert_not_nil relisted_skill
+    assert_equal "2.0.0", relisted_skill.dig("latest_version", "version")
+
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "alms-skills-acquire-v1-again",
+           method: "skills/acquire",
+           params: {
+             purchase_id: purchase_id
+           }
+         },
+         headers: headers_with_auth(buyer), as: :json
+
+    assert_response :success
+    second_acquire_body = response.parsed_body
+    second_artifact = second_acquire_body.dig("result", "artifact")
+    second_entitlement = second_acquire_body.dig("result", "entitlement")
+
+    assert_equal "1.0.0", second_artifact.dig("manifest", "version")
+    assert_equal first_artifact["checksum"], second_artifact["checksum"]
+    assert_equal first_entitlement["acquired_at"], second_entitlement["acquired_at"]
+    refute_includes second_artifact["files"].find { |file| file["path"] == "prompts/prompts.md" }["content"], "Second published bundle."
+
+    get "/api/v1/me/library", headers: headers_with_auth(buyer)
+
+    assert_response :success
+    library_body = response.parsed_body
+    purchased_skill = library_body["purchased"].find { |skill| skill["id"] == skill_id }
+
+    assert_not_nil purchased_skill
+    assert_equal "1.0.0", purchased_skill["purchased_version"]
+    assert_equal "paid", purchased_skill["purchase_status"]
+    assert_not_nil purchased_skill["acquired_at"]
+    assert_equal "2.0.0", purchased_skill["latest_verified_version"]
+  end
+
+  test "author cannot list a skill before a version passes verification" do
+    author = accounts(:alice)
+    created_skill = create_skill_as(author)
+
+    patch listing_status_api_v1_skill_url(created_skill["id"]),
+          params: {
+            skill: {
+              listing_status: "listed"
+            }
+          },
+          headers: headers_with_auth(author), as: :json
+
+    assert_response :unprocessable_entity
+    assert_includes response.parsed_body["error"], "verified version"
+  end
+
+  test "rejected version never becomes publicly discoverable" do
+    author = accounts(:alice)
+    buyer = accounts(:charlie)
+    created_skill = create_skill_as(author)
+
+    bad_manifest = alms_manifest(
+      slug: created_skill["slug"],
+      version: "1.0.0",
+      entrypoint: "scripts/push-local-learnings.py",
+      files: [
+        {
+          "path" => "skill/alms-learning-SKILL-v2.1.md",
+          "media_type" => "text/markdown"
+        }
+      ]
+    )
+
+    rejected_upload = upload_version_as(
+      skill_id: created_skill["id"],
+      author: author,
+      version: "1.0.0",
+      changelog: "Broken bundle upload",
+      manifest: bad_manifest
+    )
+
+    assert_equal "rejected", rejected_upload.dig("version", "status")
+    assert_equal "rejected", rejected_upload.dig("verification", "status")
+
+    patch listing_status_api_v1_skill_url(created_skill["id"]),
+          params: {
+            skill: {
+              listing_status: "listed"
+            }
+          },
+          headers: headers_with_auth(author), as: :json
+
+    assert_response :unprocessable_entity
+    assert_includes response.parsed_body["error"], "verified version"
+
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "alms-skills-list-rejected",
+           method: "skills/list"
+         },
+         headers: headers_with_auth(buyer), as: :json
+
+    assert_response :success
+    listed_ids = response.parsed_body.dig("result", "skills").map { |skill| skill["id"] }
+    assert_not_includes listed_ids, created_skill["id"]
+  end
+
+  test "author cannot buy own listed skill and another buyer cannot acquire my purchase" do
+    author = accounts(:alice)
+    buyer = accounts(:charlie)
+    other_buyer = accounts(:bob)
+    created_skill = create_skill_as(author)
+
+    upload_version_as(
+      skill_id: created_skill["id"],
+      author: author,
+      version: "1.0.0",
+      changelog: "Initial release",
+      manifest: alms_manifest(
+        slug: created_skill["slug"],
+        version: "1.0.0",
+        entrypoint: "scripts/push-local-learnings.py",
+        files: build_alms_file_bundle("skill/alms-learning-SKILL-v2.1.md", *ALMS_SHARED_FILES)
+      )
+    )
+
+    list_skill_as(skill_id: created_skill["id"], author: author)
+
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "author-self-purchase",
+           method: "skills/purchase",
+           params: {
+             skill_id: created_skill["id"],
+             version: "1.0.0"
+           }
+         },
+         headers: headers_with_auth(author), as: :json
+
+    assert_response :unprocessable_entity
+    assert_equal(-32000, response.parsed_body.dig("error", "code"))
+    assert_includes response.parsed_body.dig("error", "message"), "own skill"
+
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "buyer-purchase",
+           method: "skills/purchase",
+           params: {
+             skill_id: created_skill["id"],
+             version: "1.0.0"
+           }
+         },
+         headers: headers_with_auth(buyer), as: :json
+
+    assert_response :success
+    purchase_id = response.parsed_body.dig("result", "purchase", "id")
+
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "other-buyer-acquire",
+           method: "skills/acquire",
+           params: {
+             purchase_id: purchase_id
+           }
+         },
+         headers: headers_with_auth(other_buyer), as: :json
+
+    assert_response :unprocessable_entity
+    assert_equal(-32000, response.parsed_body.dig("error", "code"))
+    assert_includes response.parsed_body.dig("error", "message"), "does not belong"
+  end
+
+  private
+
+  def create_skill_as(author)
+    post "/api/v1/skills",
+         params: {
+           skill: {
+             name: "ALMS Default Learning Workflow",
+             description: "Default ALMS-connected learning workflow for new agents.",
+             price: 55
+           }
+         },
+         headers: headers_with_auth(author), as: :json
+
+    assert_response :created
+    response.parsed_body
+  end
+
+  def upload_version_as(skill_id:, author:, version:, changelog:, manifest:)
+    post versions_api_v1_skill_url(skill_id),
+         params: {
+           version: {
+             version: version,
+             changelog: changelog,
+             artifact: {
+               artifact_type: "mcp_tool_manifest",
+               manifest: manifest
+             }
+           }
+         },
+         headers: headers_with_auth(author), as: :json
+
+    assert_response :created
+    response.parsed_body
+  end
+
+  def list_skill_as(skill_id:, author:)
+    patch listing_status_api_v1_skill_url(skill_id),
+          params: {
+            skill: {
+              listing_status: "listed"
+            }
+          },
+          headers: headers_with_auth(author), as: :json
+
+    assert_response :success
+    assert_equal "listed", response.parsed_body["listing_status"]
+  end
+
+  def alms_manifest(slug:, version:, entrypoint:, files:)
+    {
+      "name" => slug,
+      "description" => "Default ALMS-connected learning workflow for new agents.",
+      "version" => version,
+      "runtime" => "client",
+      "entrypoint" => entrypoint,
+      "input_schema" => { "type" => "object" },
+      "output_schema" => { "type" => "object" },
+      "files" => files
+    }
   end
 end

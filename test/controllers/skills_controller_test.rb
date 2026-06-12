@@ -323,6 +323,193 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.parsed_body["error"], "greater than or equal to 0"
   end
 
+  test "POST /api/v1/skills/:skill_id/versions uploads a new verified version bundle" do
+    manifest = {
+      name: @data_analysis.slug,
+      description: @data_analysis.description,
+      version: "2.0.0",
+      runtime: "client",
+      entrypoint: "data_analysis.execute",
+      input_schema: { type: "object" },
+      output_schema: { type: "object" },
+      files: [
+        {
+          path: "skill/SKILL.md",
+          media_type: "text/markdown",
+          content: "# Data Analysis"
+        }
+      ]
+    }
+
+    assert_difference("SkillVersion.count", 1) do
+      assert_difference("SkillArtifact.count", 1) do
+        assert_difference("SkillVerification.count", 1) do
+          post versions_api_v1_skill_url(@data_analysis), params: {
+            version: {
+              version: "2.0.0",
+              changelog: "Adds a bundled client artifact",
+              artifact: {
+                artifact_type: "mcp_tool_manifest",
+                manifest: manifest
+              }
+            }
+          }, headers: headers_with_auth(@alice), as: :json
+        end
+      end
+    end
+
+    assert_response :created
+    body = response.parsed_body
+    assert_equal @data_analysis.id, body["skill_id"]
+    assert_equal "2.0.0", body["version"]["version"]
+    assert_equal "verified", body["version"]["status"]
+    assert_equal "verified", body["verification"]["status"]
+    assert_equal true, body["verification"]["checks"]["bundled_files_valid"]
+  end
+
+  test "POST /api/v1/skills/:skill_id/versions rejects non-author upload" do
+    post versions_api_v1_skill_url(@data_analysis), params: {
+      version: {
+        version: "2.0.0",
+        artifact: {
+          manifest: {
+            name: @data_analysis.slug,
+            description: @data_analysis.description,
+            version: "2.0.0",
+            runtime: "client",
+            entrypoint: "data_analysis.execute",
+            input_schema: { type: "object" },
+            output_schema: { type: "object" },
+            files: []
+          }
+        }
+      }
+    }, headers: headers_with_auth(@bob), as: :json
+
+    assert_response :forbidden
+    assert_includes response.parsed_body["error"], "Only the skill author"
+  end
+
+  test "POST /api/v1/skills/:skill_id/versions returns rejected verification for invalid bundle" do
+    assert_difference("SkillVersion.count", 1) do
+      post versions_api_v1_skill_url(@data_analysis), params: {
+        version: {
+          version: "2.0.0",
+          artifact: {
+            manifest: {
+              name: @data_analysis.slug,
+              description: @data_analysis.description,
+              version: "2.0.0",
+              runtime: "client",
+              entrypoint: "data_analysis.execute",
+              input_schema: { type: "object" },
+              output_schema: { type: "object" },
+              files: [
+                {
+                  path: "skill/SKILL.md",
+                  media_type: "text/markdown"
+                }
+              ]
+            }
+          }
+        }
+      }, headers: headers_with_auth(@alice), as: :json
+    end
+
+    assert_response :created
+    body = response.parsed_body
+    assert_equal "rejected", body["version"]["status"]
+    assert_equal "rejected", body["verification"]["status"]
+    assert_equal false, body["verification"]["checks"]["bundled_files_valid"]
+  end
+
+  test "POST /api/v1/skills/:skill_id/versions rejects duplicate version numbers" do
+    assert_no_difference("SkillVersion.count") do
+      post versions_api_v1_skill_url(@data_analysis), params: {
+        version: {
+          version: "1.0.0",
+          artifact: {
+            manifest: {
+              name: @data_analysis.slug,
+              description: @data_analysis.description,
+              version: "1.0.0",
+              runtime: "client",
+              entrypoint: "data_analysis.execute",
+              input_schema: { type: "object" },
+              output_schema: { type: "object" },
+              files: []
+            }
+          }
+        }
+      }, headers: headers_with_auth(@alice), as: :json
+    end
+
+    assert_response :unprocessable_entity
+    assert_includes response.parsed_body["error"], "Version has already been taken"
+  end
+
+  test "PATCH /api/v1/skills/:id/listing_status lists a skill with a verified version" do
+    post versions_api_v1_skill_url(@data_analysis), params: {
+      version: {
+        version: "2.0.0",
+        artifact: {
+          manifest: {
+            name: @data_analysis.slug,
+            description: @data_analysis.description,
+            version: "2.0.0",
+            runtime: "client",
+            entrypoint: "data_analysis.execute",
+            input_schema: { type: "object" },
+            output_schema: { type: "object" },
+            files: []
+          }
+        }
+      }
+    }, headers: headers_with_auth(@alice), as: :json
+    assert_response :created
+
+    @data_analysis.update!(listing_status: "draft")
+
+    patch listing_status_api_v1_skill_url(@data_analysis), params: {
+      skill: {
+        listing_status: "listed"
+      }
+    }, headers: headers_with_auth(@alice), as: :json
+
+    assert_response :success
+    assert_equal "listed", response.parsed_body["listing_status"]
+  end
+
+  test "PATCH /api/v1/skills/:id/listing_status rejects non-author update" do
+    patch listing_status_api_v1_skill_url(@data_analysis), params: {
+      skill: {
+        listing_status: "suspended"
+      }
+    }, headers: headers_with_auth(@bob), as: :json
+
+    assert_response :forbidden
+    assert_includes response.parsed_body["error"], "Only the skill author"
+  end
+
+  test "PATCH /api/v1/skills/:id/listing_status rejects listing without verified version" do
+    draft_skill = Skill.create!(
+      name: "Unverified Draft",
+      description: "No verified versions yet",
+      author: @alice,
+      price: 10,
+      listing_status: "draft"
+    )
+
+    patch listing_status_api_v1_skill_url(draft_skill), params: {
+      skill: {
+        listing_status: "listed"
+      }
+    }, headers: headers_with_auth(@alice), as: :json
+
+    assert_response :unprocessable_entity
+    assert_includes response.parsed_body["error"], "verified version"
+  end
+
   # ── Error shapes ───────────────────────────────────────────────
 
   test "POST /api/v1/skills returns 400 for missing skill params" do

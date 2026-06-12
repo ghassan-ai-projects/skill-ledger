@@ -37,10 +37,51 @@ module Api
         render json: { error: e.message }, status: :unprocessable_entity
       end
 
+      def create_version
+        skill = Skill.find(params[:id])
+        result = SkillVersionRegistrationService.new(skill: skill, author: @current_account).call(**version_registration_params)
+        render json: result, status: :created
+      rescue SkillVersionRegistrationService::AuthorizationError => e
+        render json: { error: e.message, details: [] }, status: :forbidden
+      rescue SkillVersionRegistrationService::Error => e
+        render json: { error: e.message, details: [] }, status: :unprocessable_entity
+      end
+
+      def update_listing_status
+        skill = Skill.find(params[:id])
+        updated_skill = SkillListingStatusService.new(skill: skill, actor: @current_account).call(
+          listing_status: listing_status_params[:listing_status]
+        )
+
+        render json: format_skill(updated_skill)
+      rescue SkillListingStatusService::AuthorizationError => e
+        render json: { error: e.message, details: [] }, status: :forbidden
+      rescue SkillListingStatusService::Error => e
+        render json: { error: e.message, details: [] }, status: :unprocessable_entity
+      end
+
       private
 
       def skill_params
         params.require(:skill).permit(:name, :description, :price)
+      end
+
+      def version_registration_params
+        permitted = params.require(:version).permit(
+          :version,
+          :changelog,
+          artifact: [
+            :artifact_type,
+            { manifest: {} }
+          ]
+        ).to_h.deep_symbolize_keys
+
+        artifact = permitted[:artifact] || {}
+        permitted.merge(artifact: artifact)
+      end
+
+      def listing_status_params
+        params.require(:skill).permit(:listing_status)
       end
 
       def format_skill(skill)
