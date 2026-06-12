@@ -159,16 +159,20 @@ class AlmsSkillBundlePurchaseE2ETest < ActionDispatch::IntegrationTest
     author = accounts(:alice)
     created_skill = create_skill_as(author)
 
-    patch listing_status_api_v1_skill_url(created_skill["id"]),
-          params: {
-            skill: {
-              listing_status: "listed"
-            }
-          },
-          headers: headers_with_auth(author), as: :json
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "author-list-without-verified-version",
+           method: "skills/listing.set_status",
+           params: {
+             skill_id: created_skill["id"],
+             listing_status: "listed"
+           }
+         },
+         headers: headers_with_auth(author), as: :json
 
     assert_response :unprocessable_entity
-    assert_includes response.parsed_body["error"], "verified version"
+    assert_includes response.parsed_body.dig("error", "message"), "verified version"
   end
 
   test "rejected version never becomes publicly discoverable" do
@@ -199,16 +203,20 @@ class AlmsSkillBundlePurchaseE2ETest < ActionDispatch::IntegrationTest
     assert_equal "rejected", rejected_upload.dig("version", "status")
     assert_equal "rejected", rejected_upload.dig("verification", "status")
 
-    patch listing_status_api_v1_skill_url(created_skill["id"]),
-          params: {
-            skill: {
-              listing_status: "listed"
-            }
-          },
-          headers: headers_with_auth(author), as: :json
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "author-list-rejected-version",
+           method: "skills/listing.set_status",
+           params: {
+             skill_id: created_skill["id"],
+             listing_status: "listed"
+           }
+         },
+         headers: headers_with_auth(author), as: :json
 
     assert_response :unprocessable_entity
-    assert_includes response.parsed_body["error"], "verified version"
+    assert_includes response.parsed_body.dig("error", "message"), "verified version"
 
     post "/api/v1/mcp",
          params: {
@@ -296,9 +304,13 @@ class AlmsSkillBundlePurchaseE2ETest < ActionDispatch::IntegrationTest
     intruder = accounts(:bob)
     created_skill = create_skill_as(author)
 
-    post versions_api_v1_skill_url(created_skill["id"]),
+    post "/api/v1/mcp",
          params: {
-           version: {
+           jsonrpc: "2.0",
+           id: "intruder-version-publish",
+           method: "skills/version.publish",
+           params: {
+             skill_id: created_skill["id"],
              version: "1.0.0",
              changelog: "Unauthorized upload attempt",
              artifact: {
@@ -314,19 +326,23 @@ class AlmsSkillBundlePurchaseE2ETest < ActionDispatch::IntegrationTest
          },
          headers: headers_with_auth(intruder), as: :json
 
-    assert_response :forbidden
-    assert_includes response.parsed_body["error"], "Only the skill author"
+    assert_response :unprocessable_entity
+    assert_includes response.parsed_body.dig("error", "message"), "do not own"
 
-    patch listing_status_api_v1_skill_url(created_skill["id"]),
-          params: {
-            skill: {
-              listing_status: "listed"
-            }
-          },
-          headers: headers_with_auth(intruder), as: :json
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "intruder-listing-set-status",
+           method: "skills/listing.set_status",
+           params: {
+             skill_id: created_skill["id"],
+             listing_status: "listed"
+           }
+         },
+         headers: headers_with_auth(intruder), as: :json
 
-    assert_response :forbidden
-    assert_includes response.parsed_body["error"], "Only the skill author"
+    assert_response :unprocessable_entity
+    assert_includes response.parsed_body.dig("error", "message"), "do not own"
   end
 
   test "duplicate version upload is rejected in the real publish flow" do
@@ -346,9 +362,13 @@ class AlmsSkillBundlePurchaseE2ETest < ActionDispatch::IntegrationTest
       )
     )
 
-    post versions_api_v1_skill_url(created_skill["id"]),
+    post "/api/v1/mcp",
          params: {
-           version: {
+           jsonrpc: "2.0",
+           id: "duplicate-version-publish",
+           method: "skills/version.publish",
+           params: {
+             skill_id: created_skill["id"],
              version: "1.0.0",
              changelog: "Duplicate release",
              artifact: {
@@ -365,7 +385,7 @@ class AlmsSkillBundlePurchaseE2ETest < ActionDispatch::IntegrationTest
          headers: headers_with_auth(author), as: :json
 
     assert_response :unprocessable_entity
-    assert_includes response.parsed_body["error"], "Version has already been taken"
+    assert_includes response.parsed_body.dig("error", "message"), "Version has already been taken"
   end
 
   test "insufficient-balance buyer cannot purchase a listed verified skill" do
@@ -425,16 +445,20 @@ class AlmsSkillBundlePurchaseE2ETest < ActionDispatch::IntegrationTest
     )
     list_skill_as(skill_id: created_skill["id"], author: author)
 
-    patch listing_status_api_v1_skill_url(created_skill["id"]),
-          params: {
-            skill: {
-              listing_status: "suspended"
-            }
-          },
-          headers: headers_with_auth(author), as: :json
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "suspend-listed-skill",
+           method: "skills/listing.set_status",
+           params: {
+             skill_id: created_skill["id"],
+             listing_status: "suspended"
+           }
+         },
+         headers: headers_with_auth(author), as: :json
 
     assert_response :success
-    assert_equal "suspended", response.parsed_body["listing_status"]
+    assert_equal "suspended", response.parsed_body.dig("result", "skill", "listing_status")
 
     post "/api/v1/mcp",
          params: {
@@ -572,55 +596,66 @@ class AlmsSkillBundlePurchaseE2ETest < ActionDispatch::IntegrationTest
   private
 
   def create_skill_as(author)
-    post "/api/v1/skills",
-         params: skill_create_payload,
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "author-create-skill-#{SecureRandom.hex(4)}",
+           method: "skills/create",
+           params: skill_create_payload
+         },
          headers: headers_with_auth(author), as: :json
 
-    assert_response :created
-    response.parsed_body
+    assert_response :success
+    response.parsed_body.dig("result", "skill")
   end
 
   def upload_version_as(skill_id:, author:, version:, changelog:, manifest:)
-    post versions_api_v1_skill_url(skill_id),
-         params: version_upload_payload(version: version, changelog: changelog, manifest: manifest),
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "author-publish-version-#{version}",
+           method: "skills/version.publish",
+           params: version_upload_payload(skill_id: skill_id, version: version, changelog: changelog, manifest: manifest)
+         },
          headers: headers_with_auth(author), as: :json
 
-    assert_response :created
-    response.parsed_body
+    assert_response :success
+    response.parsed_body.dig("result", "publication")
   end
 
   def list_skill_as(skill_id:, author:)
-    patch listing_status_api_v1_skill_url(skill_id),
-          params: {
-            skill: {
-              listing_status: "listed"
-            }
-          },
+    post "/api/v1/mcp",
+         params: {
+           jsonrpc: "2.0",
+           id: "author-list-skill-#{skill_id}",
+           method: "skills/listing.set_status",
+           params: {
+             skill_id: skill_id,
+             listing_status: "listed"
+           }
+         },
           headers: headers_with_auth(author), as: :json
 
     assert_response :success
-    assert_equal "listed", response.parsed_body["listing_status"]
+    assert_equal "listed", response.parsed_body.dig("result", "skill", "listing_status")
   end
 
   def skill_create_payload
     {
-      skill: {
-        name: "ALMS Default Learning Workflow",
-        description: "Default ALMS-connected learning workflow for new agents.",
-        price: 55
-      }
+      name: "ALMS Default Learning Workflow",
+      description: "Default ALMS-connected learning workflow for new agents.",
+      price: 55
     }
   end
 
-  def version_upload_payload(version:, changelog:, manifest:)
+  def version_upload_payload(skill_id:, version:, changelog:, manifest:)
     {
-      version: {
-        version: version,
-        changelog: changelog,
-        artifact: {
-          artifact_type: "mcp_tool_manifest",
-          manifest: manifest
-        }
+      skill_id: skill_id,
+      version: version,
+      changelog: changelog,
+      artifact: {
+        artifact_type: "mcp_tool_manifest",
+        manifest: manifest
       }
     }
   end

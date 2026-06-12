@@ -1,14 +1,25 @@
 # SkillLedger Roadmap
 
-## Status Note
+## Current Direction
 
-This file contains the older phase-by-phase hosted-execution roadmap history.
+SkillLedger is being refocused around verified skill publication, artifact acquisition, and local buyer-side execution. The current strategic plan is:
 
-For the current acquisition refactor state, use:
+1. finish the acquisition refactor away from hosted execution
+2. make MCP the primary agent contract for both publishers and buyers
+3. keep REST as a compatibility/admin surface until MCP is mature enough to stand on its own
+
+Use these documents for active planning:
+
+- [MCP-First Migration Plan](./mcp-first-migration-plan.md)
 - [Implementation Tracker](./implementation-tracker.md)
 - [Refactor Plan — Client-Side Skill Acquisition Model](./refactor-plan-client-side-acquisition.md)
 - [Detailed Refactor Execution Plan](./detailed-refactor-execution-plan.md)
-- [MCP-First Migration Plan](./mcp-first-migration-plan.md)
+
+## Historical Roadmap
+
+The phase-by-phase roadmap below records the earlier hosted-execution implementation path. It is useful project history, but it should not be treated as the current product direction.
+
+When the historical roadmap conflicts with the MCP-first acquisition model, prefer the active planning docs above.
 
 ## Completed Phases
 
