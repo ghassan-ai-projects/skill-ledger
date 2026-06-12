@@ -13,6 +13,11 @@ SkillLedger is a Rails API-only application. The default configuration is intent
 
 Database settings live in [config/database.yml](../config/database.yml).
 
+The repository now supports two development modes:
+
+- default local SQLite without extra environment variables
+- PostgreSQL when `DATABASE_URL` is set
+
 ### Development
 
 - `storage/development.sqlite3`
@@ -20,6 +25,7 @@ Database settings live in [config/database.yml](../config/database.yml).
 ### Test
 
 - `storage/test.sqlite3`
+- or PostgreSQL when `TEST_DATABASE_URL` is set
 
 ### Production
 
@@ -31,6 +37,20 @@ The production config uses SQLite-backed databases for:
 - cable
 
 Files are stored under `storage/` by default.
+
+## PostgreSQL Development Via Compose
+
+The included [docker-compose.yml](../docker-compose.yml) uses:
+
+- database name: `skill_ledger_development`
+- username: `skill_ledger`
+- password: `skill_ledger`
+- container hostname: `db`
+
+The app container injects:
+
+- `RAILS_ENV=development`
+- `DATABASE_URL=postgres://skill_ledger:skill_ledger@db:5432/skill_ledger_development`
 
 ## Authentication
 

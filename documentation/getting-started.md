@@ -20,6 +20,32 @@ bin/rails server
 
 The API listens on `http://127.0.0.1:3000` by default.
 
+## Docker Compose With PostgreSQL
+
+If you prefer a containerized setup with PostgreSQL instead of the default SQLite workflow:
+
+```bash
+docker compose up --build
+```
+
+That command starts:
+
+- `app`: the Rails server on `http://127.0.0.1:3000`
+- `db`: PostgreSQL 16 on `localhost:5432`
+
+The Compose app command automatically:
+
+- installs gems if needed
+- prepares the database
+- seeds demo data
+- starts Rails bound to `0.0.0.0`
+
+To stop the stack:
+
+```bash
+docker compose down
+```
+
 ## First API Key
 
 `bin/rails db:seed` prints the generated API keys for the seeded accounts. Copy one of those values and use it in the `X-API-Key` header.
@@ -98,4 +124,11 @@ For the local CI workflow:
 
 ```bash
 bin/ci
+```
+
+If you want to run commands inside the Compose app container:
+
+```bash
+docker compose exec app bin/rails test
+docker compose exec app bin/rails console
 ```

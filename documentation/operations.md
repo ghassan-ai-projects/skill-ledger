@@ -32,6 +32,24 @@ bin/ci
 bin/rails server
 ```
 
+Containerized PostgreSQL development:
+
+```bash
+docker compose up --build
+```
+
+Stop the stack:
+
+```bash
+docker compose down
+```
+
+Run an app command inside the container:
+
+```bash
+docker compose exec app bin/rails test
+```
+
 Health endpoint:
 
 - `GET /up`
@@ -47,6 +65,8 @@ The source OpenAPI file is [openapi.yaml](../openapi.yaml).
 ## Production Packaging
 
 The repository includes a production Dockerfile at [Dockerfile](../Dockerfile).
+
+For development containers, use [Dockerfile.dev](../Dockerfile.dev) together with [docker-compose.yml](../docker-compose.yml).
 
 Notable points:
 

@@ -63,6 +63,21 @@ bin/rails server
 
 The API starts on `http://127.0.0.1:3000`.
 
+### Docker Compose With PostgreSQL
+
+If you want to run the app against PostgreSQL in containers:
+
+```bash
+docker compose up --build
+```
+
+This starts:
+
+- a Rails app on `http://127.0.0.1:3000`
+- a PostgreSQL 16 database on `localhost:5432`
+
+The Compose app service sets `DATABASE_URL` automatically, runs `db:prepare`, seeds the database, and starts the Rails server.
+
 ### Seeded Demo Data
 
 `bin/rails db:seed` creates demo accounts and prints API keys to the console. It also seeds:
@@ -163,6 +178,14 @@ bin/rubocop
 bin/brakeman --quiet --no-pager --exit-on-warn --exit-on-error
 bin/bundler-audit
 bin/ci
+```
+
+For the containerized PostgreSQL workflow:
+
+```bash
+docker compose up --build
+docker compose exec app bin/rails test
+docker compose down
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [documentation/development.md](documentation/development.md) for contributor guidance.
