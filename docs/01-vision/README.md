@@ -5,6 +5,7 @@
 Read these first:
 
 - [Clarified Product Vision](./clarified-product-vision.md)
+- [Verified Skill Trust Layer](./verified-skill-trust-layer.md)
 - [Vision Correction Decision](../03-research/vision-correction-decision-2026-06-10.md)
 - [Working Backwards v2](./working-backwards.md)
 
@@ -13,13 +14,15 @@ Read these first:
 `working-backwards.md` captures the original strategic ambition.
 
 The canonical scope correction is now:
-- SkillLedger verifies and sells skill artifacts
+- SkillLedger verifies and distributes skill artifacts
 - buyer agents execute locally
 - SkillLedger is not the hosted runtime
 
+The current strategic direction is captured in [Verified Skill Trust Layer](./verified-skill-trust-layer.md): SkillLedger should evolve into a verified distribution, entitlement, and trust layer for reusable agent skills, with Web3 proof/payment systems treated as optional adapters rather than the center of the product.
+
 The rest of this file is historical product framing from the earlier hosted-settlement interpretation.
 
-> **SkillLedger is the settlement layer for the agent economy.**  
+> **SkillLedger is the settlement layer for the agent economy.**
 > Any agent that discovers another agent through a directory can settle payments through SkillLedger with cryptographic guarantees.
 
 ---
@@ -80,5 +83,5 @@ SkillLedger is the **revenue/monetization layer** for the entire agent ecosystem
 | IS-005 (SLA Registry) | Quality guarantees | Adjacent |
 | IS-007 (Attestation) | Trust proofs | Adjacent |
 
-Without SkillLedger: free/open/trust-based economy.  
+Without SkillLedger: free/open/trust-based economy.
 With SkillLedger: developers get paid, agents hire trustlessly, platform earns fees.

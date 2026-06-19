@@ -30,6 +30,12 @@ This directory contains the foundational research and analysis that led to Skill
 - **Content:** Honest assessment of what exists vs. what's validated, prioritization for next phase
 - **Key takeaway:** Great codebase, zero market validation. Recommended: shrink to cheapest test, validate with 5 developer interviews before building further.
 
+### SkillLedger v1 Research Synthesis (2026-06-19)
+- **File:** [skillledger-v1-research-synthesis-2026-06-19.md](./skillledger-v1-research-synthesis-2026-06-19.md)
+- **Source:** Deep research package at `~/ai-projects/projects/skill-ledger-deep-research/v1/`
+- **Content:** Synthesis of the corrected v1 direction: verified artifact registry, local execution, MCP-first acquisition, optional Web3 adapters, ALMS bridge, LLM competition, and near-term market test.
+- **Key takeaway:** v1 is stronger than the old on-chain escrow thesis, but must prove verified skill reuse beats free LLM generation for complex, edge-case-heavy skills.
+
 ### Handoff Document
 - **File:** [handoff.md](./handoff.md)
 - **Source:** PP-001 → Product Planner
@@ -43,7 +49,7 @@ This directory contains the foundational research and analysis that led to Skill
 
 ## Key Insights for Next Phase
 
-1. **Market validation gap:** The Rails MVP is fully built (Phases 1-6) but none of the core value assumptions (A1-A6) have been tested with real developers.
-2. **First priority:** Interview 5-10 agent developers to confirm the problem exists before building Phase 7 features.
-3. **Cheapest test:** 5 warm prospects from the 205 prospect micro-audits + LinkedIn survey polls designed in `06-marketing/`.
-4. **Scope for next build phase:** Escrow & dispute resolution (Phase 7 Feature 2) is the highest-value unbuilt piece.
+1. **Current direction:** SkillLedger v1 is a verified skill artifact registry with local acquisition, not a hosted execution or on-chain escrow platform.
+2. **Market validation gap:** The Rails MVP is built, but the core assumption remains untested: users must prefer verified reusable skills over free LLM-generated one-offs for at least some important categories.
+3. **First priority:** Ship anchor skills, measure real acquisition behavior, and interview users who publish or acquire skills.
+4. **Scope for next build phase:** Strengthen artifact schema, verification records, structured capability discovery, MCP purchase/acquire flows, and buyer-side verification tooling before external proof or payment adapters.
