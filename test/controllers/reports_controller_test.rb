@@ -17,8 +17,8 @@ class Api::V1::ReportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, body["verified_skill_versions"]
     assert_equal 1, body["total_purchases"]
     assert_equal 50.0, body["total_revenue"]
-    # Alice: 1000, Bob: 500, Charlie: 250 = 1750
-    assert_equal 1750.0, body["total_ledger_balance"]
+    # Alice: 1000, Bob: 500, Charlie: 250, Suspended: 100, Disabled: 100, Admin: 0 = 1950
+    assert_equal 1950.0, body["total_ledger_balance"]
   end
 
   test "GET /api/v1/reports updates after a new purchase" do
