@@ -23,7 +23,8 @@ module ActiveSupport
       bob: "test_bob_api_key_456",
       charlie: "test_charlie_api_key_789",
       suspended_user: "test_suspended_api_key_000",
-      disabled_user: "test_disabled_api_key_111"
+      disabled_user: "test_disabled_api_key_111",
+      admin_user: "test_admin_api_key_222"
     }.freeze
 
     # Respect PARALLEL_WORKERS=1 to force serial SQLite runs during local development.
@@ -94,13 +95,20 @@ module ActiveSupport
       )
 
       verification = SkillArtifactVerificationService.new(skill_version: skill_version).call
+      review = SkillReviewSubmissionService.new(skill_version: skill_version).call
+      review = SkillApprovalService.new(skill_review: review, reviewer_account: admin_account).call(decision: "approve")
 
       {
         skill: skill,
         version: skill_version.reload,
         artifact: artifact.reload,
-        verification: verification.reload
+        verification: verification.reload,
+        review: review.reload
       }
+    end
+
+    def admin_account
+      Account.find_by(admin: true)
     end
 
     def vendored_alms_bundle_root

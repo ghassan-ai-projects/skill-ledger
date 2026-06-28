@@ -28,6 +28,16 @@ class AccountTest < ActiveSupport::TestCase
     assert_includes account.errors[:balance], "must be greater than or equal to 0"
   end
 
+  test "defaults admin to false" do
+    account = Account.create!(valid_attributes(name: "NonAdminAgent"))
+    assert_equal false, account.admin?
+  end
+
+  test "admin account from fixture is an admin" do
+    assert accounts(:admin_user).admin?
+    assert_not accounts(:alice).admin?
+  end
+
   test "should allow zero balance" do
     account = Account.new(valid_attributes(balance: 0))
     assert account.valid?

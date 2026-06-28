@@ -23,26 +23,29 @@ class SkillVersionRegistrationServiceTest < ActiveSupport::TestCase
     }
   end
 
-  test "registers a new verified version with artifact bundle" do
+  test "registers a new verified version with artifact bundle and creates a pending review" do
     service = SkillVersionRegistrationService.new(skill: @skill, author: @alice)
 
     assert_difference("SkillVersion.count", 1) do
       assert_difference("SkillArtifact.count", 1) do
         assert_difference("SkillVerification.count", 1) do
-          result = service.call(
-            version: "2.0.0",
-            changelog: "Adds bundled client files",
-            artifact: {
-              artifact_type: "mcp_tool_manifest",
-              manifest: @manifest
-            }
-          )
+          assert_difference("SkillReview.count", 1) do
+            result = service.call(
+              version: "2.0.0",
+              changelog: "Adds bundled client files",
+              artifact: {
+                artifact_type: "mcp_tool_manifest",
+                manifest: @manifest
+              }
+            )
 
-          assert_equal @skill.id, result[:skill_id]
-          assert_equal "2.0.0", result[:version][:version]
-          assert_equal "verified", result[:version][:status]
-          assert_equal "verified", result[:verification][:status]
-          assert_equal true, result[:verification][:checks]["bundled_files_valid"]
+            assert_equal @skill.id, result[:skill_id]
+            assert_equal "2.0.0", result[:version][:version]
+            assert_equal "verified", result[:version][:status]
+            assert_equal "verified", result[:verification][:status]
+            assert_equal true, result[:verification][:checks]["bundled_files_valid"]
+            assert_equal "pending", result[:review][:status]
+          end
         end
       end
     end

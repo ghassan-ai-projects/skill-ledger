@@ -10,8 +10,9 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_25_160000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_28_214404) do
   create_table "accounts", force: :cascade do |t|
+    t.boolean "admin", default: false, null: false
     t.string "api_key_digest", null: false
     t.decimal "balance", precision: 10, scale: 2, default: "0.0", null: false
     t.datetime "created_at", null: false
@@ -71,6 +72,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_25_160000) do
     t.index ["skill_version_id"], name: "index_skill_artifacts_on_skill_version_id", unique: true
   end
 
+  create_table "skill_reviews", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "decided_at"
+    t.text "decision_reason"
+    t.json "policy_checks", default: {}, null: false
+    t.string "review_type", null: false
+    t.integer "reviewer_account_id"
+    t.integer "skill_version_id", null: false
+    t.string "status", default: "pending", null: false
+    t.datetime "submitted_at"
+    t.datetime "updated_at", null: false
+    t.index ["reviewer_account_id"], name: "index_skill_reviews_on_reviewer_account_id"
+    t.index ["skill_version_id"], name: "index_skill_reviews_on_skill_version_id", unique: true
+    t.index ["status"], name: "index_skill_reviews_on_status"
+  end
+
   create_table "skill_verifications", force: :cascade do |t|
     t.json "checks", default: {}, null: false
     t.datetime "created_at", null: false
@@ -116,6 +133,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_25_160000) do
   add_foreign_key "purchases", "accounts", column: "buyer_id"
   add_foreign_key "purchases", "skill_versions"
   add_foreign_key "skill_artifacts", "skill_versions"
+  add_foreign_key "skill_reviews", "accounts", column: "reviewer_account_id"
+  add_foreign_key "skill_reviews", "skill_versions"
   add_foreign_key "skill_verifications", "skill_versions"
   add_foreign_key "skill_versions", "skills"
   add_foreign_key "skills", "accounts", column: "author_id"

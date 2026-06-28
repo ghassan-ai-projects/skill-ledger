@@ -104,7 +104,61 @@ The response includes:
 
 Changes a skill to `draft`, `listed`, or `suspended`.
 
-Moving to `listed` requires at least one verified version.
+Moving to `listed` requires at least one approved version (verified and approved by an admin — see Skill Reviews below).
+
+### `GET /api/v1/skills/:skill_id/versions/:version_id/review`
+
+Author-facing review status for one of the caller's own versions. Returns:
+
+```json
+{
+  "skill_id": 1,
+  "version": "1.0.0",
+  "status": "pending",
+  "review_type": "automated",
+  "decision_reason": null,
+  "submitted_at": "2026-06-28T21:00:00Z",
+  "decided_at": null
+}
+```
+
+Fields are `null` if no review exists yet (e.g. the version is not yet verified).
+
+## Skill Reviews (Admin)
+
+Admin-only endpoints (`accounts.admin: true`), returning `403` for non-admin accounts.
+
+### `GET /api/v1/admin/skill_reviews`
+
+Lists skill reviews. Optional `status` query param (`pending`, `approved`, `rejected`, `revoked`).
+
+### `GET /api/v1/admin/skill_reviews/:id`
+
+Returns a single skill review with its nested skill version summary.
+
+### `PATCH /api/v1/admin/skill_reviews/:id/approve`
+
+### `PATCH /api/v1/admin/skill_reviews/:id/reject`
+
+### `PATCH /api/v1/admin/skill_reviews/:id/revoke`
+
+All three accept an optional `reason` body param, stored as `decision_reason`. Each returns the updated review:
+
+```json
+{
+  "id": 1,
+  "status": "approved",
+  "review_type": "manual",
+  "policy_checks": { "no_path_traversal": true },
+  "decision_reason": "Looks good",
+  "reviewer_account_id": 7,
+  "submitted_at": "2026-06-28T21:00:00Z",
+  "decided_at": "2026-06-28T21:05:00Z",
+  "skill_version": { "id": 12, "skill_id": 4, "version": "1.0.0", "status": "verified" }
+}
+```
+
+`revoke` is also valid on a previously `approved` review and immediately blocks new purchases of that version.
 
 ## Favorites
 

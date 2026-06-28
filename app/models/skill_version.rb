@@ -4,6 +4,7 @@ class SkillVersion < ApplicationRecord
   belongs_to :skill
   has_one :skill_artifact, dependent: :destroy
   has_one :skill_verification, dependent: :destroy
+  has_one :skill_review, dependent: :destroy
   has_many :purchases, dependent: :restrict_with_exception
 
   validates :version, presence: true, uniqueness: { scope: :skill_id }

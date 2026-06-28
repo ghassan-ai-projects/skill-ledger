@@ -13,22 +13,30 @@ class SkillListingStatusServiceTest < ActiveSupport::TestCase
     )
   end
 
-  test "author can list a skill with a verified version" do
-    create_verified_version_for(@skill, version: "1.0.0")
+  test "author can list a skill with an approved version" do
+    create_approved_version_for(@skill, version: "1.0.0")
 
     updated_skill = SkillListingStatusService.new(skill: @skill, actor: @author).call(listing_status: "listed")
 
     assert_equal "listed", updated_skill.listing_status
   end
 
-  test "rejects public listing without a verified version" do
-    assert_raises SkillListingStatusService::Error, match: "verified version" do
+  test "rejects public listing without any version" do
+    assert_raises SkillListingStatusService::Error, match: "approved version" do
+      SkillListingStatusService.new(skill: @skill, actor: @author).call(listing_status: "listed")
+    end
+  end
+
+  test "rejects public listing when version is verified but not yet approved" do
+    create_verified_version_for(@skill, version: "1.0.0")
+
+    assert_raises SkillListingStatusService::Error, match: "approved version" do
       SkillListingStatusService.new(skill: @skill, actor: @author).call(listing_status: "listed")
     end
   end
 
   test "rejects non-author status changes" do
-    create_verified_version_for(@skill, version: "1.0.0")
+    create_approved_version_for(@skill, version: "1.0.0")
 
     assert_raises SkillListingStatusService::AuthorizationError, match: "Only the skill author" do
       SkillListingStatusService.new(skill: @skill, actor: @other).call(listing_status: "listed")
@@ -57,5 +65,13 @@ class SkillListingStatusServiceTest < ActiveSupport::TestCase
     )
 
     SkillArtifactVerificationService.new(skill_version: skill_version).call
+    skill_version
+  end
+
+  def create_approved_version_for(skill, version:)
+    skill_version = create_verified_version_for(skill, version: version)
+    review = SkillReviewSubmissionService.new(skill_version: skill_version).call
+    SkillApprovalService.new(skill_review: review, reviewer_account: admin_account).call(decision: "approve")
+    skill_version
   end
 end

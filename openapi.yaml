@@ -25,6 +25,7 @@ tags:
   - name: Reports
   - name: Analytics
   - name: MCP
+  - name: Admin
 
 paths:
   /api/v1/skills:
@@ -133,6 +134,150 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Skill"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/v1/skills/{id}/versions/{version_id}/review:
+    get:
+      tags: [Skills]
+      summary: Get skill review status for an owned version
+      parameters:
+        - $ref: "#/components/parameters/Id"
+        - $ref: "#/components/parameters/VersionId"
+      responses:
+        "200":
+          description: Skill review status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillReviewStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/admin/skill_reviews:
+    get:
+      tags: [Admin]
+      summary: List skill reviews (admin only)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected, revoked]
+      responses:
+        "200":
+          description: Skill reviews
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  skill_reviews:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SkillReview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/skill_reviews/{id}:
+    get:
+      tags: [Admin]
+      summary: Get a skill review (admin only)
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Skill review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillReview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/admin/skill_reviews/{id}/approve:
+    patch:
+      tags: [Admin]
+      summary: Approve a skill review (admin only)
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecideSkillReviewRequest"
+      responses:
+        "200":
+          description: Updated skill review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillReview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/v1/admin/skill_reviews/{id}/reject:
+    patch:
+      tags: [Admin]
+      summary: Reject a skill review (admin only)
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecideSkillReviewRequest"
+      responses:
+        "200":
+          description: Updated skill review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillReview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/v1/admin/skill_reviews/{id}/revoke:
+    patch:
+      tags: [Admin]
+      summary: Revoke a skill review (admin only)
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecideSkillReviewRequest"
+      responses:
+        "200":
+          description: Updated skill review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillReview"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -315,6 +460,12 @@ components:
       required: true
       schema:
         type: integer
+    VersionId:
+      name: version_id
+      in: path
+      required: true
+      schema:
+        type: integer
     Q:
       name: q
       in: query
@@ -397,6 +548,79 @@ components:
         name:
           type: string
       required: [id, name]
+
+    SkillReviewStatus:
+      type: object
+      properties:
+        skill_id:
+          type: integer
+        version:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, revoked]
+          nullable: true
+        review_type:
+          type: string
+          enum: [automated, manual, appeal, revocation]
+          nullable: true
+        decision_reason:
+          type: string
+          nullable: true
+        submitted_at:
+          type: string
+          format: date-time
+          nullable: true
+        decided_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    SkillReview:
+      type: object
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+          enum: [pending, approved, rejected, revoked]
+        review_type:
+          type: string
+          enum: [automated, manual, appeal, revocation]
+        policy_checks:
+          type: object
+        decision_reason:
+          type: string
+          nullable: true
+        reviewer_account_id:
+          type: integer
+          nullable: true
+        submitted_at:
+          type: string
+          format: date-time
+          nullable: true
+        decided_at:
+          type: string
+          format: date-time
+          nullable: true
+        skill_version:
+          type: object
+          properties:
+            id:
+              type: integer
+            skill_id:
+              type: integer
+            version:
+              type: string
+            status:
+              type: string
+      required: [id, status, review_type]
+
+    DecideSkillReviewRequest:
+      type: object
+      properties:
+        reason:
+          type: string
 
     PaginationMeta:
       type: object

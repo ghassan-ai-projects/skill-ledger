@@ -60,6 +60,22 @@ module Api
         render json: { error: e.message, details: [] }, status: :unprocessable_entity
       end
 
+      def version_review
+        skill = Skill.find(params[:id])
+        skill_version = skill.skill_versions.find(params[:version_id])
+        review = skill_version.skill_review
+
+        render json: {
+          skill_id: skill.id,
+          version: skill_version.version,
+          status: review&.status,
+          review_type: review&.review_type,
+          decision_reason: review&.decision_reason,
+          submitted_at: review&.submitted_at,
+          decided_at: review&.decided_at
+        }
+      end
+
       private
 
       def skill_params
@@ -91,6 +107,7 @@ module Api
         )
         base.merge(
           "latest_verified_version" => skill.skill_versions.where(status: "verified").order(created_at: :desc).limit(1).pick(:version),
+          "latest_approved_version" => SkillMarketplaceEligibilityService.approved_version_for(skill)&.version,
           "favorite_count" => skill.favorite_count,
           "is_favorited" => skill.is_favorited(@current_account)
         )

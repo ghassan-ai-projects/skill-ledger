@@ -34,6 +34,12 @@ class McpService
       success(request_id, purchase: purchase_skill(params))
     when "skills/acquire"
       success(request_id, acquire_skill(params))
+    when "skills/version.review_status"
+      success(request_id, review: version_review_status(params))
+    when "skills/review.list_pending"
+      success(request_id, skill_reviews: list_pending_reviews)
+    when "skills/review.decide"
+      success(request_id, skill_review: decide_review(params))
     else
       raise Error.new("Method not found: #{method}", code: -32601)
     end
@@ -72,16 +78,17 @@ class McpService
     skill = publicly_listed_skills.find(skill_id)
     version = if requested_version.present?
       skill.skill_versions
-           .includes(:skill_artifact, :skill_verification)
+           .includes(:skill_artifact, :skill_verification, :skill_review)
            .find_by!(version: requested_version, status: "verified")
     else
       latest_verified_version_for(skill)
     end
 
-    raise Error.new("Verified skill version not found", code: -32602) unless version&.skill_verification&.status == "verified"
+    raise Error.new("Approved skill version not found", code: -32602) unless SkillMarketplaceEligibilityService.version_approved?(version)
 
     artifact = version.skill_artifact
     verification = version.skill_verification
+    review = version.skill_review
 
     {
       id: skill.id,
@@ -100,6 +107,10 @@ class McpService
         status: verification.status,
         checks: verification.checks,
         verified_at: verification.verified_at
+      },
+      approval: {
+        status: review&.status,
+        decided_at: review&.decided_at
       }
     }
   rescue ActiveRecord::RecordNotFound
@@ -196,14 +207,85 @@ class McpService
     raise Error.new(e.message, code: -32000)
   end
 
+  def version_review_status(params)
+    skill = owned_skill_from_params(params)
+    requested_version = params[:version] || params["version"]
+    raise Error.new("version is required", code: -32602) if requested_version.blank?
+
+    version = skill.skill_versions.find_by(version: requested_version)
+    raise Error.new("Version not found", code: -32602) unless version
+
+    review = version.skill_review
+
+    {
+      skill_id: skill.id,
+      version: version.version,
+      status: review&.status,
+      review_type: review&.review_type,
+      decision_reason: review&.decision_reason,
+      submitted_at: review&.submitted_at,
+      decided_at: review&.decided_at
+    }
+  end
+
+  def require_admin!
+    raise Error.new("Admin access required", code: AUTHORIZATION_ERROR_CODE) unless @current_account&.admin?
+  end
+
+  def list_pending_reviews
+    require_admin!
+
+    SkillReview.includes(skill_version: :skill).where(status: "pending").order(:id).map do |review|
+      serialize_skill_review(review)
+    end
+  end
+
+  def decide_review(params)
+    require_admin!
+
+    review_id = params[:review_id] || params["review_id"]
+    decision = params[:decision] || params["decision"]
+    reason = params[:reason] || params["reason"]
+    raise Error.new("review_id is required", code: -32602) if review_id.blank?
+    raise Error.new("decision is required", code: -32602) if decision.blank?
+
+    review = SkillReview.find(review_id)
+    updated = SkillApprovalService.new(skill_review: review, reviewer_account: @current_account).call(
+      decision: decision,
+      reason: reason
+    )
+
+    serialize_skill_review(updated)
+  rescue ActiveRecord::RecordNotFound
+    raise Error.new("Skill review not found", code: -32602)
+  rescue SkillApprovalService::AuthorizationError => e
+    raise Error.new(e.message, code: AUTHORIZATION_ERROR_CODE)
+  rescue SkillApprovalService::Error => e
+    raise Error.new(e.message, code: -32602)
+  end
+
+  def serialize_skill_review(review)
+    {
+      id: review.id,
+      status: review.status,
+      review_type: review.review_type,
+      policy_checks: review.policy_checks,
+      decision_reason: review.decision_reason,
+      submitted_at: review.submitted_at,
+      decided_at: review.decided_at,
+      skill_id: review.skill_version.skill_id,
+      version: review.skill_version.version
+    }
+  end
+
   def publicly_listed_skills
-    Skill.includes(:author, skill_versions: [ :skill_artifact, :skill_verification ])
+    Skill.includes(:author, skill_versions: [ :skill_artifact, :skill_verification, :skill_review ])
          .where(listing_status: "listed")
          .order(:id)
   end
 
   def owned_skills
-    Skill.includes(:author, skill_versions: [ :skill_artifact, :skill_verification, :purchases ])
+    Skill.includes(:author, skill_versions: [ :skill_artifact, :skill_verification, :skill_review, :purchases ])
          .where(author_id: @current_account.id)
          .order(:id)
   end
@@ -220,7 +302,7 @@ class McpService
 
   def latest_verified_version_for(skill)
     skill.skill_versions
-         .select { |version| version.status == "verified" && version.skill_verification&.status == "verified" && version.skill_artifact.present? }
+         .select { |version| SkillMarketplaceEligibilityService.version_approved?(version) && version.skill_artifact.present? }
          .max_by(&:created_at)
   end
 
@@ -231,6 +313,7 @@ class McpService
   def serialize_public_skill(skill, version)
     verification = version.skill_verification
     artifact = version.skill_artifact
+    review = version.skill_review
 
     {
       id: skill.id,
@@ -251,6 +334,10 @@ class McpService
         status: verification.status,
         publicly_listed: true,
         checks: verification.checks
+      },
+      approval: {
+        status: review&.status,
+        decided_at: review&.decided_at
       }
     }
   end
@@ -287,6 +374,7 @@ class McpService
   def serialize_owned_version(skill, version)
     artifact = version.skill_artifact
     verification = version.skill_verification
+    review = version.skill_review
 
     {
       skill: {
@@ -310,6 +398,11 @@ class McpService
         verified_at: verification.verified_at,
         failure_reason: verification.failure_reason
       },
+      review: review && {
+        status: review.status,
+        decision_reason: review.decision_reason,
+        decided_at: review.decided_at
+      },
       created_at: version.created_at,
       updated_at: version.updated_at
     }
@@ -318,6 +411,7 @@ class McpService
   def serialize_owned_version_summary(version)
     artifact = version.skill_artifact
     verification = version.skill_verification
+    review = version.skill_review
 
     {
       id: version.id,
@@ -326,6 +420,7 @@ class McpService
       artifact_type: artifact&.artifact_type,
       verification_status: verification&.status,
       failure_reason: verification&.failure_reason,
+      review_status: review&.status,
       created_at: version.created_at
     }
   end

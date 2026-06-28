@@ -56,21 +56,51 @@ class SkillPurchaseServiceTest < ActiveSupport::TestCase
   end
 
   test "rejects unverified versions" do
-    assert_raises SkillPurchaseService::Error, match: "not verified" do
+    assert_raises SkillPurchaseService::Error, match: "not approved" do
       @service.call(skill_id: skills(:code_review).id, version: skill_versions(:code_review_v1).version)
     end
   end
 
+  test "rejects verified versions that have not been approved" do
+    skill, version = build_verified_unapproved_skill(price: 30)
+
+    assert_raises SkillPurchaseService::Error, match: "not approved" do
+      @service.call(skill_id: skill.id, version: version.version)
+    end
+  end
+
+  test "rejects revoked versions" do
+    skill, version = build_verified_unapproved_skill(price: 30)
+    review = SkillReviewSubmissionService.new(skill_version: version).call
+    SkillApprovalService.new(skill_review: review, reviewer_account: admin_account).call(decision: "revoke")
+
+    assert_raises SkillPurchaseService::Error, match: "revoked" do
+      @service.call(skill_id: skill.id, version: version.version)
+    end
+  end
+
   test "rejects insufficient balance" do
-    expensive_skill = Skill.create!(
-      name: "Premium Verification Skill",
+    expensive_skill, expensive_version = build_verified_unapproved_skill(price: 999, name: "Premium Verification Skill")
+    review = SkillReviewSubmissionService.new(skill_version: expensive_version).call
+    SkillApprovalService.new(skill_review: review, reviewer_account: admin_account).call(decision: "approve")
+
+    assert_raises SkillPurchaseService::Error, match: "insufficient balance" do
+      @service.call(skill_id: expensive_skill.id, version: expensive_version.version)
+    end
+  end
+
+  private
+
+  def build_verified_unapproved_skill(price:, name: "Premium Verification Skill #{SecureRandom.hex(4)}")
+    skill = Skill.create!(
+      name: name,
       author: @author,
-      price: 999,
+      price: price,
       listing_status: "listed"
     )
-    expensive_version = SkillVersion.create!(skill: expensive_skill, version: "1.0.0", status: "verified")
+    version = SkillVersion.create!(skill: skill, version: "1.0.0", status: "verified")
     manifest = {
-      "name" => "premium-verification-skill",
+      "name" => skill.slug,
       "description" => "Very expensive skill",
       "version" => "1.0.0",
       "runtime" => "client",
@@ -79,20 +109,18 @@ class SkillPurchaseServiceTest < ActiveSupport::TestCase
       "output_schema" => { "type" => "object" }
     }
     SkillArtifact.create!(
-      skill_version: expensive_version,
+      skill_version: version,
       artifact_type: "mcp_tool_manifest",
       manifest: manifest,
       checksum: SkillArtifactVerificationService.checksum_for_manifest(manifest)
     )
     SkillVerification.create!(
-      skill_version: expensive_version,
+      skill_version: version,
       status: "verified",
       checks: { "checksum_matches" => true },
       verified_at: Time.current
     )
 
-    assert_raises SkillPurchaseService::Error, match: "insufficient balance" do
-      @service.call(skill_id: expensive_skill.id, version: expensive_version.version)
-    end
+    [ skill, version ]
   end
 end

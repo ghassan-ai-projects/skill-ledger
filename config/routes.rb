@@ -8,6 +8,17 @@ Rails.application.routes.draw do
       resources :skills, only: %i[index show create] do
         post :versions, on: :member, action: :create_version
         patch :listing_status, on: :member, action: :update_listing_status
+        get "versions/:version_id/review", on: :member, action: :version_review, as: :version_review
+      end
+
+      namespace :admin do
+        resources :skill_reviews, only: %i[index show] do
+          member do
+            patch :approve
+            patch :reject
+            patch :revoke
+          end
+        end
       end
 
       resources :ledger, only: %i[index], controller: "ledger_entries"

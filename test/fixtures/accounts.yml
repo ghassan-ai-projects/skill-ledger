@@ -27,3 +27,10 @@ disabled_user:
   balance: 100.00
   status: disabled
   api_key_digest: <%= BCrypt::Password.create("test_disabled_api_key_111") %>
+
+admin_user:
+  name: Admin_User
+  balance: 0.00
+  status: active
+  admin: true
+  api_key_digest: <%= BCrypt::Password.create("test_admin_api_key_222") %>

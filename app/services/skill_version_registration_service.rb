@@ -16,6 +16,7 @@ class SkillVersionRegistrationService
     skill_version = nil
     created_artifact = nil
     verification = nil
+    review = nil
 
     SkillVersion.transaction do
       skill_version = SkillVersion.create!(
@@ -33,6 +34,7 @@ class SkillVersionRegistrationService
       )
 
       verification = SkillArtifactVerificationService.new(skill_version: skill_version).call
+      review = SkillReviewSubmissionService.new(skill_version: skill_version).call if verification.status == "verified"
     end
 
     {
@@ -53,6 +55,10 @@ class SkillVersionRegistrationService
         checks: verification.checks,
         verified_at: verification.verified_at,
         failure_reason: verification.failure_reason
+      },
+      review: review && {
+        status: review.status,
+        decision_reason: review.decision_reason
       }
     }
   rescue KeyError => e
