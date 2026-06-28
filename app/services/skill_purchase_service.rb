@@ -51,9 +51,7 @@ class SkillPurchaseService
   def validate_purchaseable!(skill, skill_version)
     raise Error, "Cannot purchase your own skill" if skill.author_id == @buyer.id
     raise Error, "Skill is not publicly listed" unless skill.listing_status == "listed"
-    raise Error, "Skill version is not verified" unless skill_version.status == "verified"
-
-    verification = skill_version.skill_verification
-    raise Error, "Skill version is not verified" unless verification&.status == "verified"
+    raise Error, "Skill version has been revoked" if SkillMarketplaceEligibilityService.version_revoked?(skill_version)
+    raise Error, "Skill version is not approved" unless SkillMarketplaceEligibilityService.eligible_for_purchase?(skill_version)
   end
 end

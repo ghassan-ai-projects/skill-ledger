@@ -10,8 +10,9 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_25_160000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_29_000001) do
   create_table "accounts", force: :cascade do |t|
+    t.boolean "admin", default: false, null: false
     t.string "api_key_digest", null: false
     t.decimal "balance", precision: 10, scale: 2, default: "0.0", null: false
     t.datetime "created_at", null: false
@@ -71,6 +72,35 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_25_160000) do
     t.index ["skill_version_id"], name: "index_skill_artifacts_on_skill_version_id", unique: true
   end
 
+  create_table "skill_review_events", force: :cascade do |t|
+    t.integer "actor_account_id"
+    t.datetime "created_at", null: false
+    t.string "event_type", null: false
+    t.string "from_status"
+    t.text "reason"
+    t.integer "skill_review_id", null: false
+    t.string "to_status", null: false
+    t.index ["actor_account_id"], name: "index_skill_review_events_on_actor_account_id"
+    t.index ["event_type"], name: "index_skill_review_events_on_event_type"
+    t.index ["skill_review_id"], name: "index_skill_review_events_on_skill_review_id"
+  end
+
+  create_table "skill_reviews", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "decided_at"
+    t.text "decision_reason"
+    t.json "policy_checks", default: {}, null: false
+    t.string "review_type", null: false
+    t.integer "reviewer_account_id"
+    t.integer "skill_version_id", null: false
+    t.string "status", default: "pending", null: false
+    t.datetime "submitted_at"
+    t.datetime "updated_at", null: false
+    t.index ["reviewer_account_id"], name: "index_skill_reviews_on_reviewer_account_id"
+    t.index ["skill_version_id"], name: "index_skill_reviews_on_skill_version_id", unique: true
+    t.index ["status"], name: "index_skill_reviews_on_status"
+  end
+
   create_table "skill_verifications", force: :cascade do |t|
     t.json "checks", default: {}, null: false
     t.datetime "created_at", null: false
@@ -116,6 +146,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_25_160000) do
   add_foreign_key "purchases", "accounts", column: "buyer_id"
   add_foreign_key "purchases", "skill_versions"
   add_foreign_key "skill_artifacts", "skill_versions"
+  add_foreign_key "skill_review_events", "accounts", column: "actor_account_id"
+  add_foreign_key "skill_review_events", "skill_reviews"
+  add_foreign_key "skill_reviews", "accounts", column: "reviewer_account_id"
+  add_foreign_key "skill_reviews", "skill_versions"
   add_foreign_key "skill_verifications", "skill_versions"
   add_foreign_key "skill_versions", "skills"
   add_foreign_key "skills", "accounts", column: "author_id"

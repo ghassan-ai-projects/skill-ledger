@@ -1,0 +1,16 @@
+data_analysis_v1_review:
+  skill_version: data_analysis_v1
+  status: approved
+  review_type: manual
+  reviewer_account: admin_user
+  policy_checks:
+    manifest_declares_required_fields: true
+    artifact_size_within_limit: true
+    bundled_file_paths_allowed: true
+    permissions_declared_explicitly: false
+    no_path_traversal: true
+    no_obvious_secrets: true
+    description_and_name_consistent: true
+  decision_reason: Approved for marketplace listing
+  submitted_at: 2026-06-10 10:00:00
+  decided_at: 2026-06-10 10:05:00

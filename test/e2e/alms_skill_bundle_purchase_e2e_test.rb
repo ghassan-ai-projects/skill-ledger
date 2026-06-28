@@ -172,7 +172,7 @@ class AlmsSkillBundlePurchaseE2ETest < ActionDispatch::IntegrationTest
          headers: headers_with_auth(author), as: :json
 
     assert_response :unprocessable_entity
-    assert_includes response.parsed_body.dig("error", "message"), "verified version"
+    assert_includes response.parsed_body.dig("error", "message"), "approved version"
   end
 
   test "rejected version never becomes publicly discoverable" do
@@ -216,7 +216,7 @@ class AlmsSkillBundlePurchaseE2ETest < ActionDispatch::IntegrationTest
          headers: headers_with_auth(author), as: :json
 
     assert_response :unprocessable_entity
-    assert_includes response.parsed_body.dig("error", "message"), "verified version"
+    assert_includes response.parsed_body.dig("error", "message"), "approved version"
 
     post "/api/v1/mcp",
          params: {
@@ -620,7 +620,15 @@ class AlmsSkillBundlePurchaseE2ETest < ActionDispatch::IntegrationTest
          headers: headers_with_auth(author), as: :json
 
     assert_response :success
-    response.parsed_body.dig("result", "publication")
+    publication = response.parsed_body.dig("result", "publication")
+    approve_latest_review_for(skill_id) if publication.dig("version", "status") == "verified"
+    publication
+  end
+
+  def approve_latest_review_for(skill_id)
+    skill_version = SkillVersion.where(skill_id: skill_id).order(created_at: :desc).first
+    review = skill_version.skill_review
+    SkillApprovalService.new(skill_review: review, reviewer_account: admin_account).call(decision: "approve")
   end
 
   def list_skill_as(skill_id:, author:)

@@ -23,6 +23,7 @@ Current important boundaries:
 - only the authenticated author can change listing status for a skill
 - only the authenticated author can access their analytics and earnings
 - only the authenticated buyer can acquire a purchase
+- only accounts with `admin: true` can list pending skill reviews or decide them (approve, reject, revoke), both over REST (`/api/v1/admin/skill_reviews`) and MCP (`skills/review.list_pending`, `skills/review.decide`)
 
 ## Purchase Integrity
 
@@ -51,6 +52,16 @@ Verification does not prove:
 - the code will behave as described
 - the artifact is free from malicious payloads
 - the runtime environment is isolated
+
+## Marketplace Approval Limits
+
+Verification (above) is distinct from marketplace approval. A `SkillReview` record tracks the approval decision separately:
+
+- `SkillPolicyCheckService` only runs deterministic, local checks (file paths, size, regex secret scanning, declared permissions). It is not a substitute for code review, sandboxed execution analysis, or external scanning.
+- Automated rejection only happens for a small set of hard-fail conditions (path traversal, absolute paths, obvious secret-looking strings). Everything else is left `pending` for a human admin decision — manual review is the final authority.
+- The `accounts.admin` boolean is the entire authorization model for reviewers in this version. There is no scoped reviewer role or multi-party sign-off.
+- Every review transition is captured in an append-only `skill_review_events` log (actor, from/to status, reason, timestamp), so decision history survives later re-decisions. The log is not yet cryptographically tamper-evident — it relies on database integrity and the trusted-server assumption above.
+- Revoking a review blocks new purchases of that version but does not retroactively affect prior purchases, acquisitions, or already-distributed artifacts.
 
 ## Hardening Priorities
 

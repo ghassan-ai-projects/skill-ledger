@@ -118,6 +118,10 @@ class McpPublisherInventoryE2ETest < ActionDispatch::IntegrationTest
     assert_equal "verified", published_inventory_skill.dig("latest_version", "verification_status")
     assert_equal [ "1.0.0" ], published_inventory_skill["versions"].map { |version| version["version"] }
 
+    skill_version = SkillVersion.find_by(skill_id: skill_id, version: "1.0.0")
+    review = skill_version.skill_review
+    SkillApprovalService.new(skill_review: review, reviewer_account: admin_account).call(decision: "approve")
+
     post "/api/v1/mcp",
          params: {
            jsonrpc: "2.0",

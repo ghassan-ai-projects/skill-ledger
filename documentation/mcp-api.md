@@ -53,7 +53,7 @@ Params:
 - `price`
 - optional `listing_status`
 
-Note: trying to create a listed skill before a verified version exists is rejected by domain rules.
+Note: trying to create a listed skill before an approved version exists is rejected by domain rules.
 
 ### `skills/mine.list`
 
@@ -74,7 +74,7 @@ Params:
 - optional `changelog`
 - `artifact`
 
-The artifact payload is verified immediately and the response includes the verification result.
+The artifact payload is verified immediately and the response includes the verification result. If verification succeeds, a skill review is automatically created (`pending`, or `rejected` if a hard-fail policy check trips); the response includes the review's `status`.
 
 ### `skills/version.get`
 
@@ -87,25 +87,63 @@ Params:
 
 ### `skills/listing.set_status`
 
-Changes listing status for an owned skill.
+Changes listing status for an owned skill. Moving to `listed` requires at least one approved version.
 
 Params:
 
 - `skill_id`
 - `listing_status`
 
+### `skills/version.review_status`
+
+Returns the skill review status for one of the caller's own versions.
+
+Params:
+
+- `skill_id`
+- `version`
+
+Response (`result.review`):
+
+```json
+{
+  "skill_id": 1,
+  "version": "1.0.0",
+  "status": "pending",
+  "review_type": "automated",
+  "decision_reason": null,
+  "submitted_at": "2026-06-28T21:00:00Z",
+  "decided_at": null
+}
+```
+
+### `skills/review.list_pending` (admin only)
+
+Lists all `pending` skill reviews across the marketplace. Requires `accounts.admin: true`; otherwise returns a `-32001` authorization error.
+
+### `skills/review.decide` (admin only)
+
+Approves, rejects, or revokes a skill review. Requires `accounts.admin: true`.
+
+Params:
+
+- `review_id`
+- `decision` (`approve`, `reject`, or `revoke`)
+- optional `reason`
+
 ### `skills/list`
 
-Lists publicly listed skills that currently have a verified version available for acquisition.
+Lists publicly listed skills that currently have an approved version available for acquisition.
 
 ### `skills/get`
 
-Returns details for a public verified skill, including:
+Returns details for a public, approved skill version, including:
 
 - author summary
 - manifest summary
 - checksum
 - verification data
+- approval data (`status`, `decided_at`)
 
 Params:
 
@@ -114,7 +152,7 @@ Params:
 
 ### `skills/purchase`
 
-Purchases a specific verified version.
+Purchases a specific verified, approved version. Rejected if the version was later `revoked`.
 
 Params:
 
@@ -147,7 +185,8 @@ The controller currently uses JSON-RPC style codes including:
 
 ## Practical Notes
 
-- public acquisition is limited to listed skills with verified versions
+- public acquisition is limited to listed skills with verified, approved versions
 - authors cannot buy their own skills
 - repeated paid purchases of the same version by the same buyer return the existing paid purchase
 - acquisition marks `acquired_at` on first successful artifact retrieval
+- a verified version is not enough to be listed or purchased — it must also have an `approved` skill review; see [security-model.md](security-model.md) for the approval workflow

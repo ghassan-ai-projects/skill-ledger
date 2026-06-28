@@ -14,6 +14,7 @@ class SkillAcquisitionService
 
     artifact = purchase.skill_version.skill_artifact
     verification = purchase.skill_version.skill_verification
+    review = purchase.skill_version.skill_review
     skill = purchase.skill_version.skill
 
     {
@@ -25,9 +26,14 @@ class SkillAcquisitionService
       },
       verification: {
         status: verification.status,
-        publicly_listed: skill.listing_status == "listed" && purchase.skill_version.status == "verified",
+        publicly_listed: skill.listing_status == "listed" && SkillMarketplaceEligibilityService.eligible_for_purchase?(purchase.skill_version),
         checks: verification.checks,
         verified_at: verification.verified_at
+      },
+      approval: {
+        status: review&.status,
+        decided_at: review&.decided_at,
+        revoked: SkillMarketplaceEligibilityService.version_revoked?(purchase.skill_version)
       },
       entitlement: {
         purchase_id: purchase.id,

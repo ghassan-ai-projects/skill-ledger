@@ -35,6 +35,14 @@ class Account < ApplicationRecord
     @plaintext_api_key
   end
 
+  # The freshly generated plaintext key is only ever held in memory on the
+  # instance that created it. Reloading from the database must not continue to
+  # expose it, so drop the cached plaintext when reattaching to persisted state.
+  def reload(*)
+    @plaintext_api_key = nil
+    super
+  end
+
   private
 
   def generate_api_key

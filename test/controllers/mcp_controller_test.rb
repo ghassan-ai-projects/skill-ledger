@@ -100,7 +100,7 @@ class Api::V1::McpControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     body = response.parsed_body
     assert_equal(-32602, body["error"]["code"])
-    assert_includes body["error"]["message"], "verified version"
+    assert_includes body["error"]["message"], "approved version"
   end
 
   test "POST /api/v1/mcp lists only the authenticated author's skills with purchase summary and versions" do
@@ -345,7 +345,7 @@ class Api::V1::McpControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     body = response.parsed_body
     assert_equal(-32602, body["error"]["code"])
-    assert_includes body["error"]["message"], "verified version"
+    assert_includes body["error"]["message"], "approved version"
   end
 
   test "POST /api/v1/mcp rejects author version lookup for someone else's skill" do
