@@ -1,26 +1,33 @@
 # SkillLedger
 
-Agent-to-agent skill publishing, discovery, purchase, and settlement with a local database-backed ledger.
+Agent-to-agent marketplace for publishing, verifying, approving, purchasing, and locally acquiring skill artifacts, with a local database-backed ledger.
 
-**Status:** MVP  
-**Stack:** Ruby on Rails 8.1 (API-only), SQLite3  
-**Ruby:** 3.3.11  
-**Organization:** [ghassan-ai-projects](https://github.com/ghassan-ai-projects)
+- **Status:** MVP
+- **Stack:** Ruby on Rails 8.1 (API-only), SQLite3 (PostgreSQL via Docker Compose)
+- **Ruby:** 3.3.11
+- **Organization:** [ghassan-ai-projects](https://github.com/ghassan-ai-projects)
 
 ---
 
 ## Description
 
-SkillLedger is a Rails API that lets agent authors publish skills with a staked bond, and other agents discover, purchase, and settle executions. The "ledger" is a local SQLite database — no real crypto, no external APIs.
+SkillLedger lets agent authors publish **skills** as versioned, verifiable artifacts. Other agents discover them, purchase access, and acquire the artifact payload to run locally. SkillLedger does not host or execute skills — verified artifacts are acquisition packages for client-side execution. The "ledger" is a local database; there is no real crypto and no external execution runtime.
+
+A skill version travels through two independent gates before it can be sold:
+
+1. **Verification** — an automated check that the artifact is well-formed (manifest fields, checksum, bundled-file integrity). Sets the version to `verified` or `rejected`.
+2. **Approval** — a marketplace decision, tracked on a separate `SkillReview` record (`pending` / `approved` / `rejected` / `revoked`). A verified version is auto-submitted for review; deterministic policy checks can auto-reject it, otherwise an admin decides. Only a **verified and approved** version can be listed, purchased, and acquired.
 
 Key concepts:
 
-- **Accounts** — Agents that author skills, buy executions, and hold balances.
-- **Skills** — Published capabilities with a price per call and a staked bond.
-- **Executions** — A record of a skill being purchased and executed by a buyer.
-- **Ledger Entries** — Immutable audit trail of every financial transfer between accounts.
+- **Accounts** — Agent identities. Each has a balance, a bcrypt-digested API key, and an `admin` flag.
+- **Skills** — Marketplace listings owned by an author, with a `price` and a `listing_status` (`draft` / `listed` / `suspended`).
+- **Skill Versions** — Semver releases of a skill, each with one artifact and one verification record.
+- **Skill Reviews** — The approval decision for a version, with an append-only event log of every transition.
+- **Purchases & Entitlements** — A buyer's paid access to a specific version, with an entitlement token and acquisition state.
+- **Ledger Entries** — Audit trail of every credit transfer between accounts.
 
-When an execution fails, the author's stake is slashed and refunded to the buyer along with the original price — creating an incentive for skill quality.
+For the full domain model and flows, see [documentation/how-it-works.md](documentation/how-it-works.md).
 
 ---
 
@@ -52,735 +59,143 @@ bin/rails server
 
 The server starts on `http://localhost:3000` by default.
 
-### Database
+### Docker Compose (PostgreSQL)
 
-The project uses SQLite3. Database files are stored in `storage/`:
+A Compose setup runs the app against PostgreSQL 16:
 
-| Environment | Database file |
-|-------------|---------------|
-| Development | `storage/development.sqlite3` |
-| Test | `storage/test.sqlite3` |
-| Production | `storage/production.sqlite3` |
+```bash
+docker compose up --build
+docker compose exec app bin/rails test
+docker compose down
+```
+
+PostgreSQL is used automatically when `DATABASE_URL` is present; otherwise development and test default to SQLite3 in `storage/`.
 
 ### Seeds
 
-Running `bin/rails db:seed` creates:
-
-| Account | Balance |
-|---------|---------|
-| Alice | 1000.00 |
-| Bob | 500.00 |
-| Charlie | 250.00 |
-| Dana | 1000.00 |
-| Eve | 1000.00 |
-
-And two skills:
-
-| Skill | Author | Price/call | Stake |
-|-------|--------|-----------|-------|
-| Data Analysis | Alice | 50.00 | 200.00 |
-| Code Review | Bob | 35.00 | 150.00 |
+`bin/rails db:seed` creates demo accounts (Alice, Bob, Charlie, Dana, Eve), two listed skills (Data Analysis by Alice, Code Review by Bob), and a verified, approved version of Data Analysis with a sample purchase. Each account's API key is printed once during seeding — save it then, as only the digest is stored afterward.
 
 ---
 
 ## Authentication
 
-All API endpoints require authentication via an API key passed in the `X-API-Key` request header.
-
-Each account authenticates with an API key sent in the `X-API-Key` header. Keys are shown once when created or backfilled, then stored as bcrypt digests.
-
-### How to authenticate
-
-Include the `X-API-Key` header with every request:
+Every endpoint requires an API key in the `X-API-Key` header. Keys are generated on account creation and stored as bcrypt digests; the plaintext is shown only once.
 
 ```bash
 curl -s http://localhost:3000/api/v1/skills \
   -H "X-API-Key: YOUR_API_KEY" | jq
 ```
 
-### Obtaining an API key
-
-API keys are printed when they are created during seeding. Copy them at that point; they cannot be retrieved later once only the digest is stored.
-
-```bash
-bin/rails db:seed
-# => Account: Alice (1000.0 credits) — API Key: abc123...
-```
-
-To backfill API keys for existing accounts during migration:
+To backfill keys for accounts that lack one:
 
 ```bash
 bin/rails dev:generate_api_keys
 ```
 
-That task still works, but each generated key is only shown once in the command output.
-
-### Error responses
-
-**`401 Unauthorized`** — missing or invalid API key:
+Missing or invalid keys return `401`:
 
 ```json
-{
-  "error": "Invalid or missing API key",
-  "details": []
-}
+{ "error": "Invalid or missing API key", "details": [] }
 ```
+
+Admin-only endpoints additionally require the account's `admin` flag and return `403` otherwise.
 
 ---
 
-## API Endpoints
+## API Overview
 
-All endpoints are namespaced under `/api/v1`. Request and response bodies use JSON.
+All endpoints are namespaced under `/api/v1` and exchange JSON. This is a high-level map; the canonical reference with request/response bodies lives in [documentation/rest-api.md](documentation/rest-api.md) and [openapi.yaml](openapi.yaml).
 
-### Skills
+### Skills & versions
 
-#### `GET /api/v1/skills` — List all skills
+| Method & path | Purpose |
+|---------------|---------|
+| `GET /skills` | List skills (search, author filter, sort, paginate) |
+| `POST /skills` | Create a draft skill owned by the caller |
+| `GET /skills/:id` | Get a single skill |
+| `POST /skills/:id/versions` | Publish a version with an artifact manifest (verified immediately; a review is auto-created) |
+| `PATCH /skills/:id/listing_status` | Move a skill to `draft` / `listed` / `suspended` (listing requires an approved version) |
+| `GET /skills/:skill_id/versions/:version_id/review` | Author-facing review status for one of their versions |
 
-Returns all published skills with their author information.
+### Skill reviews (admin only)
 
-```bash
-curl -s http://localhost:3000/api/v1/skills | jq
-```
+| Method & path | Purpose |
+|---------------|---------|
+| `GET /admin/skill_reviews` | List reviews, optionally filtered by `status` |
+| `GET /admin/skill_reviews/:id` | Get a review with its append-only event history |
+| `PATCH /admin/skill_reviews/:id/approve` | Approve a pending review |
+| `PATCH /admin/skill_reviews/:id/reject` | Reject a pending review |
+| `PATCH /admin/skill_reviews/:id/revoke` | Revoke a previously approved review (blocks new purchases) |
 
-**Response `200 OK`:**
+### Marketplace & account
+
+| Method & path | Purpose |
+|---------------|---------|
+| `GET /me/library` | The caller's favorites, purchases, and authored skills |
+| `GET /favorites`, `POST /favorites`, `DELETE /favorites/:id` | Manage favorited skills |
+| `GET /ledger` | List ledger entries (optionally filtered by `account_id`) |
+| `GET /reports` | Marketplace summary counts (skills, listed, verified versions, purchases, revenue, balances) |
+| `GET /authors/:id/analytics`, `GET /authors/:id/earnings` | Author-scoped metrics (caller's own only) |
+
+### Purchasing and acquisition
+
+Purchase and acquisition are exposed through the MCP endpoint (below), which mirrors the buyer flow: list → get → purchase → acquire. See [documentation/mcp-api.md](documentation/mcp-api.md).
+
+### Errors
+
+All errors share one shape:
+
 ```json
-[
-  {
-    "id": 1,
-    "name": "Data Analysis",
-    "description": "Analyze datasets and generate reports",
-    "author_id": 1,
-    "stake_amount": "200.0",
-    "price_per_call": "50.0",
-    "created_at": "2026-05-28T20:23:37.000Z",
-    "updated_at": "2026-05-28T20:23:37.000Z",
-    "author": {
-      "id": 1,
-      "name": "Alice"
-    }
-  }
-]
+{ "error": "Human-readable message", "details": [] }
 ```
 
-#### `POST /api/v1/skills` — Create a skill
-
-Creates a new skill authored by an existing account.
-
-```bash
-curl -s -X POST http://localhost:3000/api/v1/skills \
-  -H "Content-Type: application/json" \
-  -d '{
-    "skill": {
-      "name": "Translation Service",
-      "description": "Translate text between languages",
-      "author_id": 1,
-      "price_per_call": 25.00,
-      "stake_amount": 100.00
-    }
-  }' | jq
-```
-
-**Parameters (JSON body under `skill` key):**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | String | Yes | Skill display name |
-| `description` | String | No | Detailed description |
-| `author_id` | Integer | Yes | ID of the author account |
-| `price_per_call` | Decimal | Yes | Price in credits per execution |
-| `stake_amount` | Decimal | Yes | Stake bonded by the author |
-
-The author must have sufficient balance to cover `stake_amount`.
-
-**Response `201 Created`:**
-```json
-{
-  "id": 3,
-  "name": "Translation Service",
-  "description": "Translate text between languages",
-  "author_id": 1,
-  "stake_amount": "100.0",
-  "price_per_call": "25.0",
-  "author": { "id": 1, "name": "Alice" }
-}
-```
-
-**Error `422 Unprocessable Entity`** — author not found:
-```json
-{ "error": "Author not found", "details": [] }
-```
-
-**Error `422 Unprocessable Entity`** — insufficient balance for stake:
-```json
-{ "error": "Author has insufficient balance for stake", "details": [] }
-```
-
-**Error `422 Unprocessable Entity`** — validation failed:
-```json
-{
-  "error": "Validation failed",
-  "details": ["Name can't be blank"]
-}
-```
-
-**Error `400 Bad Request`** — missing `skill` parameter:
-```json
-{
-  "error": "Missing required parameter",
-  "details": ["param is missing or the value is empty: skill"]
-}
-```
-
-#### `GET /api/v1/skills/:id` — Get a skill
-
-Returns a single skill by ID.
-
-```bash
-curl -s http://localhost:3000/api/v1/skills/1 | jq
-```
-
-**Response `200 OK`:**
-```json
-{
-  "id": 1,
-  "name": "Data Analysis",
-  "description": "Analyze datasets and generate reports",
-  "author_id": 1,
-  "stake_amount": "200.0",
-  "price_per_call": "50.0",
-  "created_at": "2026-05-28T20:23:37.000Z",
-  "updated_at": "2026-05-28T20:23:37.000Z",
-  "author": { "id": 1, "name": "Alice" }
-}
-```
-
-**Error `404 Not Found`:**
-```json
-{
-  "error": "Couldn't find Skill with 'id'=99999",
-  "details": []
-}
-```
-
-### Executions
-
-#### `POST /api/v1/skills/:skill_id/execute` — Execute a skill
-
-A buyer purchases and executes a skill. The buyer's account is charged `price_per_call`, the author is credited, and a ledger entry is created. Both accounts must be different.
-
-```bash
-curl -s -X POST http://localhost:3000/api/v1/skills/1/execute \
-  -H "Content-Type: application/json" \
-  -d '{ "buyer_id": 2 }' | jq
-```
-
-**Parameters:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `buyer_id` | Integer | Yes | ID of the buyer account |
-
-**Response `201 Created`:**
-```json
-{
-  "id": 1,
-  "skill_id": 1,
-  "buyer_id": 2,
-  "status": "completed",
-  "result": null,
-  "timestamp": "2026-05-29T11:30:00.000Z"
-}
-```
-
-**Error `422 Unprocessable Entity`** — buyer not found:
-```json
-{ "error": "Buyer not found", "details": [] }
-```
-
-**Error `422 Unprocessable Entity`** — buyer is the author:
-```json
-{ "error": "Cannot execute your own skill", "details": [] }
-```
-
-**Error `422 Unprocessable Entity`** — insufficient balance:
-```json
-{ "error": "Buyer has insufficient balance", "details": [] }
-```
-
-**Error `404 Not Found`** — skill not found:
-```json
-{
-  "error": "Couldn't find Skill with 'id'=99999",
-  "details": []
-}
-```
-
-#### `GET /api/v1/executions` — List executions
-
-Returns all executions with associated skill and buyer information.
-
-```bash
-curl -s http://localhost:3000/api/v1/executions | jq
-```
-
-**Response `200 OK`:**
-```json
-[
-  {
-    "id": 1,
-    "skill_id": 1,
-    "buyer_id": 2,
-    "status": "completed",
-    "result": null,
-    "timestamp": "2026-05-29T11:30:00.000Z",
-    "skill": { "id": 1, "name": "Data Analysis" },
-    "buyer": { "id": 2, "name": "Bob" }
-  }
-]
-```
-
-#### `PATCH /api/v1/executions/:id/fail` — Fail an execution
-
-Marks an execution as failed. The author's stake is slashed and the buyer receives a refund (price + stake). Two ledger entries are created: one `slash` and one `refund`.
-
-The author must have sufficient balance to cover the stake + price refund.
-
-```bash
-curl -s -X PATCH http://localhost:3000/api/v1/executions/1/fail | jq
-```
-
-**Response `200 OK`:**
-```json
-{
-  "id": 1,
-  "skill_id": 1,
-  "buyer_id": 2,
-  "status": "failed",
-  "result": null,
-  "timestamp": "2026-05-29T11:30:00.000Z"
-}
-```
-
-**Error `422 Unprocessable Entity`** — execution already failed:
-```json
-{ "error": "Execution is already failed", "details": [] }
-```
-
-**Error `422 Unprocessable Entity`** — author has insufficient balance (validation):
-```json
-{
-  "error": "Validation failed",
-  "details": ["Balance must be greater than or equal to 0"]
-}
-```
-
-**Error `404 Not Found`** — execution not found:
-```json
-{
-  "error": "Couldn't find Execution with 'id'=99999",
-  "details": []
-}
-```
-
-### Ledger
-
-#### `GET /api/v1/ledger` — List ledger entries
-
-Returns all ledger entries with from/to account information.
-
-```bash
-curl -s http://localhost:3000/api/v1/ledger | jq
-```
-
-**Response `200 OK`:**
-```json
-[
-  {
-    "id": 1,
-    "from_account_id": 1,
-    "to_account_id": 2,
-    "amount": "100.0",
-    "entry_type": "transfer",
-    "timestamp": "2026-05-28T20:23:37.000Z",
-    "from_account": { "id": 1, "name": "Alice" },
-    "to_account": { "id": 2, "name": "Bob" }
-  }
-]
-```
-
-### Reports
-
-#### `GET /api/v1/reports` — Summary statistics
-
-Returns aggregate statistics across the entire system.
-
-```bash
-curl -s http://localhost:3000/api/v1/reports | jq
-```
-
-**Response `200 OK`:**
-```json
-{
-  "total_skills": 2,
-  "total_executions": 5,
-  "completed_executions": 4,
-  "failed_executions": 1,
-  "total_slashed": 200.0,
-  "total_ledger_balance": 1750.0
-}
-```
-
-| Field | Description |
-|-------|-------------|
-| `total_skills` | Number of published skills |
-| `total_executions` | Total executions across all skills |
-| `completed_executions` | Executions with status "completed" |
-| `failed_executions` | Executions with status "failed" |
-| `total_slashed` | Total credits slashed from failed executions |
-| `total_ledger_balance` | Sum of all account balances |
-
-### Reviews
-
-#### `POST /api/v1/executions/:id/review` — Review an execution
-
-Allows a buyer to rate a completed execution (1-5) with optional text.
-
-```bash
-curl -s -X POST http://localhost:3000/api/v1/executions/1/review \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: YOUR_API_KEY" \
-  -d '{ "rating": 4, "review_text": "Great work!" }' | jq
-```
-
-**Response `201 Created`:**
-```json
-{
-  "id": 1,
-  "rating": 4,
-  "review_text": "Great work!",
-  "buyer_name": "Bob",
-  "created_at": "2026-05-29T12:00:00.000Z"
-}
-```
-
-**Error `403 Forbidden`** — not the buyer.
-
-**Error `422 Unprocessable Entity`** — not completed, duplicate, or self-review.
-
-#### `GET /api/v1/skills/:id/reviews` — List reviews for a skill
-
-Returns all reviews for a skill, newest first, paginated.
-
-```bash
-curl -s http://localhost:3000/api/v1/skills/1/reviews \
-  -H "X-API-Key: YOUR_API_KEY" | jq
-```
-
-**Response `200 OK`:**
-```json
-{
-  "reviews": [
-    {
-      "id": 1,
-      "rating": 4,
-      "review_text": "Great work!",
-      "buyer_name": "Bob",
-      "created_at": "2026-05-29T12:00:00.000Z"
-    }
-  ],
-  "meta": { "current_page": 1, "total_pages": 1, "total_count": 1, "per_page": 20 }
-}
-```
-
-### Favorites
-
-#### `POST /api/v1/favorites` — Add a skill to favorites
-
-```bash
-curl -s -X POST http://localhost:3000/api/v1/favorites \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: YOUR_API_KEY" \
-  -d '{ "skill_id": 1 }' | jq
-```
-
-**Response `201 Created`:**
-```json
-{ "message": "Skill added to favorites", "favorite_id": 1 }
-```
-
-**Error `422`** — duplicate, **`404`** — skill not found.
-
-#### `DELETE /api/v1/favorites/:skill_id` — Remove a favorite
-
-```bash
-curl -s -X DELETE http://localhost:3000/api/v1/favorites/1 \
-  -H "X-API-Key: YOUR_API_KEY"
-```
-
-**Response `204 No Content`**
-
-#### `GET /api/v1/favorites` — List favorited skills
-
-Returns favorited skills with full skill details, paginated.
-
-```bash
-curl -s http://localhost:3000/api/v1/favorites \
-  -H "X-API-Key: YOUR_API_KEY" | jq
-```
-
-**Response `200 OK`:**
-```json
-{
-  "favorites": [
-    {
-      "id": 1,
-      "name": "Data Analysis",
-      "author": { "id": 1, "name": "Alice" },
-      "average_rating": 4.0,
-      "review_count": 1,
-      "favorite_count": 2,
-      "is_favorited": true
-    }
-  ],
-  "meta": { "current_page": 1, "total_pages": 1, "total_count": 1, "per_page": 20 }
-}
-```
-
-### Library
-
-#### `GET /api/v1/me/library` — Personal library
-
-Returns all skills relevant to the authenticated user: favorites, purchased, and authored.
-
-```bash
-curl -s http://localhost:3000/api/v1/me/library \
-  -H "X-API-Key: YOUR_API_KEY" | jq
-```
-
-**Response `200 OK`:**
-```json
-{
-  "favorites": [ ...skills with full details... ],
-  "purchased": [ ...skills executed, with last_execution_timestamp... ],
-  "my_skills": [ ...authored skills... ]
-}
-```
+`401` (auth), `403` (forbidden / not admin), `404` (not found), `422` (validation or domain-rule failure).
 
 ---
 
-### Analytics
+## MCP Interface
 
-#### `GET /api/v1/authors/:id/analytics` — Author analytics dashboard
-
-Returns comprehensive analytics for an author, including earnings, execution stats, and ratings.
-Only the author can access their own analytics.
-
-Supports `?period=` parameter: `all`, `last_7_days`, `last_30_days`, `last_90_days`, `this_year`.
-
-```bash
-curl -s http://localhost:3000/api/v1/authors/1/analytics \
-  -H "X-API-Key: YOUR_API_KEY" | jq
-```
-
-**Response `200 OK`:**
-```json
-{
-  "author": { "id": 1, "name": "Alice" },
-  "total_skills": 2,
-  "total_executions": 5,
-  "total_earnings": 250.0,
-  "total_slashed": 100.0,
-  "average_rating": 4.5,
-  "execution_breakdown": { "completed": 4, "failed": 1, "pending": 0 },
-  "top_skills": [
-    {
-      "id": 1,
-      "name": "Data Analysis",
-      "execution_count": 3,
-      "total_revenue": 150.0,
-      "average_rating": 4.5
-    }
-  ],
-  "recent_executions": [
-    {
-      "id": 5,
-      "skill_name": "Data Analysis",
-      "buyer_name": "Bob",
-      "status": "completed",
-      "amount": 50.0,
-      "timestamp": "2026-05-29T12:00:00.000Z"
-    }
-  ]
-}
-```
-
-| Field | Description |
-|-------|-------------|
-| `author` | Author id and name |
-| `total_skills` | Number of skills authored |
-| `total_executions` | Total executions across all skills |
-| `total_earnings` | Sum of price_per_call for completed executions |
-| `total_slashed` | Sum of slash ledger entries |
-| `average_rating` | Average rating across all reviews |
-| `execution_breakdown` | Counts of completed, failed, pending executions |
-| `top_skills` | Top 5 skills by execution count |
-| `recent_executions` | Last 10 executions with details |
-
-**Error `403 Forbidden`** — accessing another author's analytics:
-```json
-{ "error": "You can only access your own analytics", "details": [] }
-```
-
-**Error `404 Not Found`** — author not found:
-```json
-{
-  "error": "Couldn't find Account with 'id'=99999",
-  "details": []
-}
-```
-
-#### `GET /api/v1/authors/:id/earnings` — Daily earnings breakdown
-
-Returns a daily breakdown of earnings with totals and best-performing skill.
-
-```bash
-curl -s http://localhost:3000/api/v1/authors/1/earnings \
-  -H "X-API-Key: YOUR_API_KEY" | jq
-```
-
-**Response `200 OK`:**
-```json
-{
-  "earnings_over_time": [
-    { "date": "2026-05-28", "amount": 100.0, "execution_count": 2 },
-    { "date": "2026-05-29", "amount": 50.0, "execution_count": 1 }
-  ],
-  "total_earnings": 150.0,
-  "average_per_day": 75.0,
-  "best_skill": { "name": "Data Analysis", "revenue": 150.0 }
-}
-```
-
----
-
-## Webhooks
-
-Skills can notify external services when an execution completes or fails via a webhook URL.
-
-### Setting a webhook URL
-
-Set `webhook_url` on a skill when creating or updating it. Only `https://` URLs are accepted.
-
-```bash
-curl -s -X POST http://localhost:3000/api/v1/skills \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: YOUR_API_KEY" \
-  -d '{
-    "skill": {
-      "name": "Webhook Skill",
-      "description": "A skill with webhook",
-      "author_id": 1,
-      "price_per_call": 10.00,
-      "stake_amount": 50.00,
-      "webhook_url": "https://example.com/webhooks/skill-ledger"
-    }
-  }' | jq
-```
-
-### Payload schema
-
-When an execution completes or fails, a POST request is sent to the `webhook_url` with the following JSON body:
+SkillLedger exposes an MCP-style JSON-RPC endpoint at `POST /api/v1/mcp`. Identity still comes from the `X-API-Key` header, not the JSON-RPC payload.
 
 ```json
-{
-  "event": "execution.completed",
-  "execution": {
-    "id": 1,
-    "skill_id": 1,
-    "skill_name": "Data Analysis",
-    "buyer_id": 2,
-    "status": "completed",
-    "result": null,
-    "timestamp": "2026-05-29T12:00:00.000Z"
-  },
-  "skill": {
-    "id": 1,
-    "name": "Data Analysis",
-    "author_id": 1
-  }
-}
+{ "jsonrpc": "2.0", "id": "skills-list", "method": "skills/list", "params": {} }
 ```
 
-The `event` field is either `execution.completed` or `execution.failed`.
-
-### Retry behavior
-
-| Scenario | Behavior |
-|----------|----------|
-| Timeout (5s connect + 5s read) | Retries up to 3 times with exponential backoff |
-| 5xx Server Error | Retries up to 3 times with exponential backoff |
-| 4xx Client Error | Discarded immediately — logged, not retried |
-| 2xx Success | Acknowledged, no further action |
-
-### Signature verification
-
-Webhook consumers should verify that incoming requests originate from SkillLedger. Recommended approach:
-
-1. Generate a shared secret (e.g., via `SecureRandom.hex(32)`).
-2. Include it as a query parameter or custom header when setting `webhook_url`.
-3. On the consumer side, validate the shared secret matches.
-
----
-
-## Error Responses
-
-All errors follow a consistent JSON shape:
-
-```json
-{
-  "error": "Human-readable error message",
-  "details": ["Optional array of detailed messages"]
-}
-```
-
-| HTTP Status | When |
-|-------------|------|
-| `400 Bad Request` | Missing required parameters |
-| `404 Not Found` | Resource not found |
-| `422 Unprocessable Entity` | Validation failures, insufficient balance, business rule violations |
+Methods cover authoring (`skills/create`, `skills/version.publish`, `skills/version.get`, `skills/mine.list`, `skills/listing.set_status`, `skills/version.review_status`), the buyer flow (`skills/list`, `skills/get`, `skills/purchase`, `skills/acquire`), and admin review (`skills/review.list_pending`, `skills/review.decide`). Full catalog: [documentation/mcp-api.md](documentation/mcp-api.md).
 
 ---
 
 ## Architecture
 
 ```
-Accounts ──┬── author Skills ──┬── have Executions
-            │                   │
-            │                   └── buyer is an Account
-            │
-            └── send/receive Ledger Entries
+Accounts ──┬── author Skills ── have Skill Versions ──┬── Skill Artifact (manifest + checksum)
+           │                                          ├── Skill Verification (automated checks)
+           │                                          └── Skill Review (approval) ── Review Events (audit log)
+           │
+           ├── buy Purchases (entitlement to a version) ── acquire artifact for local use
+           │
+           └── send/receive Ledger Entries
 ```
 
-### Data flow
+The codebase keeps controllers thin and pushes domain rules into service objects:
 
-1. An **Account** authors a **Skill** with a `stake_amount` (bond) and `price_per_call`.
-2. Another **Account** (buyer) executes the skill via `POST /skills/:id/execute`.
-3. On execution, `price_per_call` is transferred from buyer → author via `LedgerTransactionService`.
-4. If the execution fails (`PATCH /executions/:id/fail`):
-   - Author's `stake_amount` is slashed and given to the buyer.
-   - `price_per_call` is refunded from author back to buyer.
-   - Two ledger entries are created: `slash` and `refund`.
+- `app/controllers/api/v1/` — request parsing, auth, response shaping
+- `app/services/` — workflows (creation, version registration, verification, policy checks, review submission/approval, eligibility, purchase, acquisition, listing transitions)
+- `app/models/` — persistence, validations, associations
 
 ### Key design decisions
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Rails mode | API-only | No views, purely JSON |
-| Database | SQLite | Local, zero-config, race-safe via serialized transactions |
-| Module structure | Namespaced models + service objects | Simple, no engine overhead |
-| Stake handling | Declared on skill; deducted on failure only | Avoids upfront escrow complexity |
-| Execution | Synchronous | Simple for MVP |
-| Authentication | X-API-Key header with per-account API keys | Simple API auth without session state |
+| Rails mode | API-only | JSON only, no views |
+| Database | SQLite by default, PostgreSQL via Compose | Zero-config locally; Postgres for container parity |
+| Verification vs approval | Separate records | Well-formedness is not fitness for sale; avoids overloading one status |
+| Admin model | `accounts.admin` boolean | Simplest authorization for MVP review decisions |
+| Review history | Append-only `skill_review_events` | Preserves the full decision trail across re-decisions |
+| Skill execution | Out of scope | Verified artifacts are acquired and run client-side, not hosted |
+| Authentication | `X-API-Key` with per-account bcrypt-digested keys | Stateless auth without sessions |
+
+See [documentation/security-model.md](documentation/security-model.md) for trust boundaries and the limits of verification and policy checks.
 
 ---
 
@@ -789,32 +204,29 @@ Accounts ──┬── author Skills ──┬── have Executions
 | Gem | Purpose |
 |-----|---------|
 | rails ~> 8.1.3 | Web framework (API-only) |
-| sqlite3 >= 2.1 | Database adapter |
+| sqlite3 >= 2.1 | Default database adapter |
+| pg | PostgreSQL adapter (Compose) |
 | puma >= 5.0 | Application server |
-| bootsnap | Boot time optimization |
+| bootsnap | Boot-time optimization |
 
-Development/test gems: debug, rubocop-rails-omakase, brakeman, bundler-audit.
+Development/test gems: debug, rubocop-rails-omakase, brakeman, bundler-audit, rswag.
 
 ---
 
 ## Testing
 
 ```bash
-bin/rails test
+bin/rails test            # full suite (Minitest, parallel)
+bin/rubocop               # style
+bin/brakeman --quiet --no-pager --exit-on-warn --exit-on-error
+bin/bundler-audit         # dependency advisories
+bin/ci                    # the above, when feasible
 ```
 
-The test suite uses Minitest (Rails default) with fixtures and runs in parallel.
-
-To run a specific test file:
+Run a single file:
 
 ```bash
 bin/rails test test/controllers/skills_controller_test.rb
-```
-
-To check test coverage (if SimpleCov is configured):
-
-```bash
-COVERAGE=true bin/rails test
 ```
 
 ---
@@ -827,4 +239,4 @@ The application logs one line per request in a lograge-style format:
 [2026-05-29T11:30:00+02:00] GET /api/v1/skills -> 200 (12.3ms | db: 4.5ms | fmt: json | ip: 127.0.0.1)
 ```
 
-Request logs are written to `log/development.log` (development) and `log/test.log` (test) via `Rails.logger`.
+Logs are written to `log/development.log` and `log/test.log` via `Rails.logger`.
