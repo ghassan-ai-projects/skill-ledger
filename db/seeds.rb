@@ -33,6 +33,14 @@ end
 puts "  - Account: #{eve.name} (#{eve.balance} credits)"
 puts "    API Key: #{eve.api_key} (shown only once; save it now)" if eve.api_key
 
+admin = Account.find_or_create_by!(name: "Admin") do |a|
+  a.balance = 0.00
+  a.admin = true
+end
+admin.update!(admin: true) unless admin.admin?
+puts "  - Account: #{admin.name} (admin)"
+puts "    API Key: #{admin.api_key} (shown only once; save it now)" if admin.api_key
+
 # ---------------------------------------------------------------------------
 # Skills
 # ---------------------------------------------------------------------------
@@ -90,6 +98,14 @@ artifact.update!(
 )
 
 SkillArtifactVerificationService.new(skill_version: data_analysis_v1).call
+
+# Auto-create the marketplace review for the verified version, then approve it
+# as an admin so the demo skill is actually listable and purchasable.
+review = SkillReviewSubmissionService.new(skill_version: data_analysis_v1).call
+if review.status == "pending"
+  SkillApprovalService.new(skill_review: review, reviewer_account: admin).call(decision: "approve", reason: "Seed approval")
+  puts "  - Review: #{data_analysis.name} v#{data_analysis_v1.version} approved by #{admin.name}"
+end
 
 bob_purchase = Purchase.find_or_initialize_by(buyer: bob, skill_version: data_analysis_v1, status: "paid")
 bob_purchase.amount ||= data_analysis.price
