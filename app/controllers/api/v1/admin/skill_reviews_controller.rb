@@ -10,8 +10,8 @@ module Api
         end
 
         def show
-          review = SkillReview.find(params[:id])
-          render json: format_review(review)
+          review = SkillReview.includes(:skill_review_events, skill_version: :skill).find(params[:id])
+          render json: format_review(review).merge(events: review.skill_review_events.map { |event| format_event(event) })
         end
 
         def approve
@@ -40,6 +40,18 @@ module Api
           render json: { error: e.message, details: [] }, status: :forbidden
         rescue SkillApprovalService::Error => e
           render json: { error: e.message, details: [] }, status: :unprocessable_entity
+        end
+
+        def format_event(event)
+          {
+            id: event.id,
+            event_type: event.event_type,
+            from_status: event.from_status,
+            to_status: event.to_status,
+            actor_account_id: event.actor_account_id,
+            reason: event.reason,
+            created_at: event.created_at
+          }
         end
 
         def format_review(review)

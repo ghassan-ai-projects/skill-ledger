@@ -18,13 +18,26 @@ class SkillApprovalService
     raise AuthorizationError, "Only an admin account can decide skill reviews" unless @reviewer_account&.admin?
     raise Error, "Unknown decision '#{decision}'" unless DECISIONS.include?(decision)
 
-    @skill_review.update!(
-      status: DECISION_TO_STATUS.fetch(decision),
-      review_type: "manual",
-      reviewer_account: @reviewer_account,
-      decision_reason: reason,
-      decided_at: Time.current
-    )
+    from_status = @skill_review.status
+    to_status = DECISION_TO_STATUS.fetch(decision)
+
+    SkillReview.transaction do
+      @skill_review.update!(
+        status: to_status,
+        review_type: "manual",
+        reviewer_account: @reviewer_account,
+        decision_reason: reason,
+        decided_at: Time.current
+      )
+
+      @skill_review.record_event!(
+        event_type: to_status,
+        from_status: from_status,
+        to_status: to_status,
+        actor_account: @reviewer_account,
+        reason: reason
+      )
+    end
 
     @skill_review
   rescue ActiveRecord::RecordInvalid => e

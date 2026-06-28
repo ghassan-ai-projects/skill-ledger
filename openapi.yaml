@@ -614,7 +614,36 @@ components:
               type: string
             status:
               type: string
+        events:
+          type: array
+          description: Append-only decision history, present on the show endpoint.
+          items:
+            $ref: "#/components/schemas/SkillReviewEvent"
       required: [id, status, review_type]
+
+    SkillReviewEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        event_type:
+          type: string
+          enum: [submitted, auto_rejected, approved, rejected, revoked]
+        from_status:
+          type: string
+          nullable: true
+        to_status:
+          type: string
+        actor_account_id:
+          type: integer
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      required: [id, event_type, to_status]
 
     DecideSkillReviewRequest:
       type: object

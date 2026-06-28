@@ -134,7 +134,7 @@ Lists skill reviews. Optional `status` query param (`pending`, `approved`, `reje
 
 ### `GET /api/v1/admin/skill_reviews/:id`
 
-Returns a single skill review with its nested skill version summary.
+Returns a single skill review with its nested skill version summary and an `events` array — the append-only decision history (`event_type`, `from_status`, `to_status`, `actor_account_id`, `reason`, `created_at`), ordered chronologically.
 
 ### `PATCH /api/v1/admin/skill_reviews/:id/approve`
 

@@ -77,6 +77,8 @@ Review statuses are:
 
 An admin account (`accounts.admin`) decides pending reviews via `SkillApprovalService`, setting `review_type: "manual"`. Admins can also revoke a previously approved review, which immediately blocks new purchases of that version.
 
+Every transition is recorded as an append-only `SkillReviewEvent` (`submitted`, `auto_rejected`, `approved`, `rejected`, `revoked`) capturing the actor, the `from`/`to` status, and the reason. The `SkillReview` row holds only the latest decision; the event log preserves the full history across re-decisions (e.g. approve → revoke → approve). The history is returned by `GET /api/v1/admin/skill_reviews/:id`.
+
 `SkillMarketplaceEligibilityService` is the single source of truth for whether a version is eligible for listing or purchase: it requires both a `verified` `SkillVersion`/`SkillVerification` and an `approved` `SkillReview`.
 
 ### Purchases And Entitlements

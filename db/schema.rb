@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_28_214404) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_29_000001) do
   create_table "accounts", force: :cascade do |t|
     t.boolean "admin", default: false, null: false
     t.string "api_key_digest", null: false
@@ -70,6 +70,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_28_214404) do
     t.datetime "updated_at", null: false
     t.index ["artifact_type"], name: "index_skill_artifacts_on_artifact_type"
     t.index ["skill_version_id"], name: "index_skill_artifacts_on_skill_version_id", unique: true
+  end
+
+  create_table "skill_review_events", force: :cascade do |t|
+    t.integer "actor_account_id"
+    t.datetime "created_at", null: false
+    t.string "event_type", null: false
+    t.string "from_status"
+    t.text "reason"
+    t.integer "skill_review_id", null: false
+    t.string "to_status", null: false
+    t.index ["actor_account_id"], name: "index_skill_review_events_on_actor_account_id"
+    t.index ["event_type"], name: "index_skill_review_events_on_event_type"
+    t.index ["skill_review_id"], name: "index_skill_review_events_on_skill_review_id"
   end
 
   create_table "skill_reviews", force: :cascade do |t|
@@ -133,6 +146,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_28_214404) do
   add_foreign_key "purchases", "accounts", column: "buyer_id"
   add_foreign_key "purchases", "skill_versions"
   add_foreign_key "skill_artifacts", "skill_versions"
+  add_foreign_key "skill_review_events", "accounts", column: "actor_account_id"
+  add_foreign_key "skill_review_events", "skill_reviews"
   add_foreign_key "skill_reviews", "accounts", column: "reviewer_account_id"
   add_foreign_key "skill_reviews", "skill_versions"
   add_foreign_key "skill_verifications", "skill_versions"

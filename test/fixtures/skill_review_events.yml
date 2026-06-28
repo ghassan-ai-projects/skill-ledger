@@ -1,0 +1,14 @@
+data_analysis_v1_submitted:
+  skill_review: data_analysis_v1_review
+  event_type: submitted
+  to_status: pending
+  created_at: 2026-06-10 10:00:00
+
+data_analysis_v1_approved:
+  skill_review: data_analysis_v1_review
+  event_type: approved
+  from_status: pending
+  to_status: approved
+  actor_account: admin_user
+  reason: Approved for marketplace listing
+  created_at: 2026-06-10 10:05:00

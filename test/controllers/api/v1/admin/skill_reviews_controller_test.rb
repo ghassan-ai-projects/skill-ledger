@@ -21,11 +21,16 @@ class Api::V1::Admin::SkillReviewsControllerTest < ActionDispatch::IntegrationTe
     assert_response :forbidden
   end
 
-  test "admin can view a single review" do
+  test "admin can view a single review with its event history" do
+    @review.record_event!(event_type: "submitted", to_status: "pending")
+    SkillApprovalService.new(skill_review: @review, reviewer_account: accounts(:admin_user)).call(decision: "approve")
+
     get "/api/v1/admin/skill_reviews/#{@review.id}", headers: headers_with_auth(accounts(:admin_user))
 
     assert_response :success
     assert_equal @review.id, response.parsed_body["id"]
+    event_types = response.parsed_body["events"].map { |e| e["event_type"] }
+    assert_equal %w[submitted approved], event_types
   end
 
   test "admin can approve a pending review" do

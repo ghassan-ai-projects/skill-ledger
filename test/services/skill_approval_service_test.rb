@@ -37,6 +37,20 @@ class SkillApprovalServiceTest < ActiveSupport::TestCase
     assert_equal "revoked", result.status
   end
 
+  test "records an append-only event for each decision" do
+    SkillApprovalService.new(skill_review: @review, reviewer_account: admin_account).call(decision: "approve")
+    SkillApprovalService.new(skill_review: @review, reviewer_account: admin_account).call(decision: "revoke", reason: "leak")
+
+    events = @review.skill_review_events.reload
+    assert_equal %w[approved revoked], events.map(&:event_type)
+
+    revoke_event = events.last
+    assert_equal "approved", revoke_event.from_status
+    assert_equal "revoked", revoke_event.to_status
+    assert_equal admin_account, revoke_event.actor_account
+    assert_equal "leak", revoke_event.reason
+  end
+
   test "non-admin cannot decide a review" do
     service = SkillApprovalService.new(skill_review: @review, reviewer_account: accounts(:alice))
 

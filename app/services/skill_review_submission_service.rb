@@ -8,8 +8,9 @@ class SkillReviewSubmissionService
     return review if review.persisted? && review.status != "pending"
 
     policy_result = SkillPolicyCheckService.new(skill_version: @skill_version).call
+    hard_failed = policy_result[:hard_failed]
 
-    if policy_result[:hard_failed]
+    if hard_failed
       review.assign_attributes(
         status: "rejected",
         review_type: "automated",
@@ -27,7 +28,16 @@ class SkillReviewSubmissionService
       )
     end
 
-    review.save!
+    SkillReview.transaction do
+      review.save!
+
+      if hard_failed
+        review.record_event!(event_type: "auto_rejected", to_status: "rejected", reason: review.decision_reason)
+      else
+        review.record_event!(event_type: "submitted", to_status: "pending")
+      end
+    end
+
     review
   end
 

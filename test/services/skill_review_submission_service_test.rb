@@ -37,6 +37,7 @@ class SkillReviewSubmissionServiceTest < ActiveSupport::TestCase
       assert_equal "pending", review.status
       assert_equal "automated", review.review_type
       assert_not_nil review.submitted_at
+      assert_equal %w[submitted], review.skill_review_events.map(&:event_type)
     end
   end
 
@@ -51,6 +52,7 @@ class SkillReviewSubmissionServiceTest < ActiveSupport::TestCase
     assert_equal "automated", review.review_type
     assert_match(/Automated policy check failed/, review.decision_reason)
     assert_not_nil review.decided_at
+    assert_equal %w[auto_rejected], review.skill_review_events.map(&:event_type)
   end
 
   test "is idempotent when a decided review already exists" do
