@@ -11,10 +11,10 @@ module Api
 
       def authenticate!
         api_key = request.headers["X-API-Key"]
-        @current_account = Account.find_by(api_key: api_key)
-        return if @current_account
+        @current_account = Account.authenticate_api_key(api_key)
+        return invalid_api_key_response unless @current_account&.status == "active"
 
-        render json: { error: "Invalid or missing API key", details: [] }, status: :unauthorized
+        @current_account.update_column(:last_used_at, Time.current)
       end
 
       def paginate(collection, default_per_page: DEFAULT_PER_PAGE)
@@ -55,6 +55,10 @@ module Api
         end
 
         collection.order(sort_column => sort_order.to_sym)
+      end
+
+      def invalid_api_key_response
+        render json: { error: "Invalid or missing API key", details: [] }, status: :unauthorized
       end
     end
   end

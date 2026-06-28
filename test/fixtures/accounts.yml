@@ -1,14 +1,29 @@
 alice:
   name: Alice
   balance: 1000.00
-  api_key: test_alice_api_key_123
+  status: active
+  api_key_digest: <%= BCrypt::Password.create("test_alice_api_key_123") %>
 
 bob:
   name: Bob
   balance: 500.00
-  api_key: test_bob_api_key_456
+  status: active
+  api_key_digest: <%= BCrypt::Password.create("test_bob_api_key_456") %>
 
 charlie:
   name: Charlie
   balance: 250.00
-  api_key: test_charlie_api_key_789
+  status: active
+  api_key_digest: <%= BCrypt::Password.create("test_charlie_api_key_789") %>
+
+suspended_user:
+  name: Suspended_User
+  balance: 100.00
+  status: suspended
+  api_key_digest: <%= BCrypt::Password.create("test_suspended_api_key_000") %>
+
+disabled_user:
+  name: Disabled_User
+  balance: 100.00
+  status: disabled
+  api_key_digest: <%= BCrypt::Password.create("test_disabled_api_key_111") %>

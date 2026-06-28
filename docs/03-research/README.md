@@ -30,6 +30,12 @@ This directory contains the foundational research and analysis that led to Skill
 - **Content:** Honest assessment of what exists vs. what's validated, prioritization for next phase
 - **Key takeaway:** Great codebase, zero market validation. Recommended: shrink to cheapest test, validate with 5 developer interviews before building further.
 
+### Omnigent Learnings For SkillLedger (2026-06-14)
+- **File:** [omnigent-learnings-for-skillledger-2026-06-14.md](./omnigent-learnings-for-skillledger-2026-06-14.md)
+- **Source:** Local deep dive into `/Users/ghassan/external-projects/omnigent`
+- **Content:** Transferable packaging, verification, policy metadata, catalog, entitlement scoping, contract testing, examples, and deployment learnings from Omnigent
+- **Key takeaway:** Borrow Omnigent's artifact packaging and governance patterns without adopting its hosted runtime, multi-harness orchestration, or collaboration server.
+
 ### SkillLedger v1 Research Synthesis (2026-06-19)
 - **File:** [skillledger-v1-research-synthesis-2026-06-19.md](./skillledger-v1-research-synthesis-2026-06-19.md)
 - **Source:** Deep research package at `~/ai-projects/projects/skill-ledger-deep-research/v1/`
