@@ -14,6 +14,7 @@ Use these documents for active planning:
 - [MCP-First Migration Plan](./mcp-first-migration-plan.md)
 - [Implementation Tracker](./implementation-tracker.md)
 - [Refactor Plan — Client-Side Skill Acquisition Model](./refactor-plan-client-side-acquisition.md)
+- [Skill Approval Workflow Plan](./skill-approval-workflow-plan.md)
 - [Detailed Refactor Execution Plan](./detailed-refactor-execution-plan.md)
 
 ## Historical Roadmap

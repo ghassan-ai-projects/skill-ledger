@@ -14,9 +14,18 @@ require_relative "../config/environment"
 require "rails/test_help"
 require "webmock/minitest"
 require "pathname"
+require "bcrypt"
 
 module ActiveSupport
   class TestCase
+    TEST_API_KEYS = {
+      alice: "test_alice_api_key_123",
+      bob: "test_bob_api_key_456",
+      charlie: "test_charlie_api_key_789",
+      suspended_user: "test_suspended_api_key_000",
+      disabled_user: "test_disabled_api_key_111"
+    }.freeze
+
     # Respect PARALLEL_WORKERS=1 to force serial SQLite runs during local development.
     configured_workers = ENV["PARALLEL_WORKERS"]&.to_i
     parallelize(workers: configured_workers) if configured_workers && configured_workers > 1
@@ -30,12 +39,16 @@ module ActiveSupport
 
     # Returns a Hash of headers including a valid X-API-Key for the given account fixture.
     def headers_with_auth(account, other_headers = {})
-      { "X-API-Key" => account.api_key, "Content-Type" => "application/json" }.merge(other_headers)
+      { "X-API-Key" => plaintext_api_key_for(account), "Content-Type" => "application/json" }.merge(other_headers)
     end
 
     # Shorthand: merge auth headers into any existing headers hash.
     def authenticated_headers(account, headers = {})
-      headers.merge("X-API-Key" => account.api_key)
+      headers.merge("X-API-Key" => plaintext_api_key_for(account))
+    end
+
+    def plaintext_api_key_for(account)
+      TEST_API_KEYS.fetch(account.name.downcase.to_sym)
     end
 
     def create_verified_skill_listing(name:, slug:, author:, price:, description:, version: "1.0.0", entrypoint: "pricing_review.evaluate", file_bundle: [])

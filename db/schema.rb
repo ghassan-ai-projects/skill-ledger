@@ -10,14 +10,16 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_10_133000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_25_160000) do
   create_table "accounts", force: :cascade do |t|
-    t.string "api_key", null: false
+    t.string "api_key_digest", null: false
     t.decimal "balance", precision: 10, scale: 2, default: "0.0", null: false
     t.datetime "created_at", null: false
+    t.datetime "last_used_at"
     t.string "name", null: false
+    t.string "status", default: "active", null: false
     t.datetime "updated_at", null: false
-    t.index ["api_key"], name: "index_accounts_on_api_key", unique: true
+    t.index ["api_key_digest"], name: "index_accounts_on_api_key_digest"
   end
 
   create_table "favorites", force: :cascade do |t|

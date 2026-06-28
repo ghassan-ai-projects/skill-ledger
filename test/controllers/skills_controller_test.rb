@@ -27,6 +27,15 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "authentication updates account last_used_at" do
+    @alice.update_column(:last_used_at, nil)
+
+    get api_v1_skills_url, headers: headers_with_auth(@alice)
+
+    assert_response :success
+    assert_not_nil @alice.reload.last_used_at
+  end
+
   # ── Index ──────────────────────────────────────────────────────
 
   test "GET /api/v1/skills returns all skills" do
@@ -61,24 +70,18 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Alice", skill["author"]["name"]
   end
 
-  test "GET /api/v1/skills includes listing and purchase metadata" do
+  test "GET /api/v1/skills includes average_rating and review_count" do
     get api_v1_skills_url, headers: headers_with_auth(@alice)
     assert_response :success
 
     skill = response.parsed_body["skills"].find { |s| s["name"] == "Data Analysis" }
-    assert skill.key?("slug")
-    assert skill.key?("listing_status")
-    assert skill.key?("price")
-    assert skill.key?("latest_verified_version")
+    assert skill.key?("average_rating")
+    assert skill.key?("review_count")
     assert skill.key?("favorite_count")
     assert skill.key?("is_favorited")
   end
 
   test "GET /api/v1/skills returns empty list when no skills exist" do
-    Purchase.delete_all
-    SkillVerification.delete_all
-    SkillArtifact.delete_all
-    SkillVersion.delete_all
     Skill.destroy_all
 
     get api_v1_skills_url, headers: headers_with_auth(@alice)
@@ -234,17 +237,17 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Alice", body["author"]["name"]
   end
 
-  test "GET /api/v1/skills/:id includes listing metadata" do
+  test "GET /api/v1/skills/:id includes average_rating and review_count" do
     get api_v1_skill_url(@data_analysis), headers: headers_with_auth(@alice)
     assert_response :success
 
     body = response.parsed_body
-    assert body.key?("slug")
-    assert body.key?("listing_status")
-    assert body.key?("price")
-    assert body.key?("latest_verified_version")
+    assert body.key?("average_rating")
+    assert body.key?("review_count")
     assert body.key?("favorite_count")
     assert body.key?("is_favorited")
+    assert_equal 4.0, body["average_rating"]
+    assert_equal 1, body["review_count"]
     assert_equal false, body["is_favorited"] # Alice did not favorite her own skill
   end
 
@@ -271,7 +274,8 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
           name: "Test Skill",
           description: "A test",
           author_id: @alice.id,
-          price: 10.00
+          price_per_call: 10.00,
+          stake_amount: 50.00
         }
       }, headers: headers_with_auth(@alice), as: :json
     end
@@ -282,18 +286,34 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
     assert_equal @alice.id, body["author_id"]
   end
 
-  test "POST /api/v1/skills ignores client-supplied author_id and uses the current account" do
-    assert_difference("Skill.count", 1) do
+  test "POST /api/v1/skills returns error when author not found" do
+    assert_no_difference("Skill.count") do
       post api_v1_skills_url, params: {
         skill: {
           name: "Orphan Skill",
           author_id: 99999,
-          price: 10.00
+          price_per_call: 10.00,
+          stake_amount: 50.00
         }
       }, headers: headers_with_auth(@alice), as: :json
     end
-    assert_response :created
-    assert_equal @alice.id, response.parsed_body["author_id"]
+    assert_response :unprocessable_entity
+    assert_includes response.parsed_body["error"], "Author not found"
+  end
+
+  test "POST /api/v1/skills returns error when author has insufficient balance for stake" do
+    assert_no_difference("Skill.count") do
+      post api_v1_skills_url, params: {
+        skill: {
+          name: "Unstakeable Skill",
+          author_id: @bob.id,
+          price_per_call: 10.00,
+          stake_amount: 9999.00
+        }
+      }, headers: headers_with_auth(@alice), as: :json
+    end
+    assert_response :unprocessable_entity
+    assert_includes response.parsed_body["error"], "insufficient balance"
   end
 
   test "POST /api/v1/skills returns validation errors for missing name" do
@@ -301,7 +321,8 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
       post api_v1_skills_url, params: {
         skill: {
           author_id: @alice.id,
-          price: 10.00
+          price_per_call: 10.00,
+          stake_amount: 50.00
         }
       }, headers: headers_with_auth(@alice), as: :json
     end
@@ -315,199 +336,13 @@ class Api::V1::SkillsControllerTest < ActionDispatch::IntegrationTest
         skill: {
           name: "Negative Price",
           author_id: @alice.id,
-          price: -10.00
+          price_per_call: -10.00,
+          stake_amount: 50.00
         }
       }, headers: headers_with_auth(@alice), as: :json
     end
     assert_response :unprocessable_entity
     assert_includes response.parsed_body["error"], "greater than or equal to 0"
-  end
-
-  test "POST /api/v1/skills/:skill_id/versions uploads a new verified version bundle" do
-    manifest = {
-      name: @data_analysis.slug,
-      description: @data_analysis.description,
-      version: "2.0.0",
-      runtime: "client",
-      entrypoint: "data_analysis.execute",
-      input_schema: { type: "object" },
-      output_schema: { type: "object" },
-      files: [
-        {
-          path: "skill/SKILL.md",
-          media_type: "text/markdown",
-          content: "# Data Analysis"
-        }
-      ]
-    }
-
-    assert_difference("SkillVersion.count", 1) do
-      assert_difference("SkillArtifact.count", 1) do
-        assert_difference("SkillVerification.count", 1) do
-          post versions_api_v1_skill_url(@data_analysis), params: {
-            version: {
-              version: "2.0.0",
-              changelog: "Adds a bundled client artifact",
-              artifact: {
-                artifact_type: "mcp_tool_manifest",
-                manifest: manifest
-              }
-            }
-          }, headers: headers_with_auth(@alice), as: :json
-        end
-      end
-    end
-
-    assert_response :created
-    body = response.parsed_body
-    assert_equal @data_analysis.id, body["skill_id"]
-    assert_equal "2.0.0", body["version"]["version"]
-    assert_equal "verified", body["version"]["status"]
-    assert_equal "verified", body["verification"]["status"]
-    assert_equal true, body["verification"]["checks"]["bundled_files_valid"]
-  end
-
-  test "POST /api/v1/skills/:skill_id/versions rejects non-author upload" do
-    post versions_api_v1_skill_url(@data_analysis), params: {
-      version: {
-        version: "2.0.0",
-        artifact: {
-          manifest: {
-            name: @data_analysis.slug,
-            description: @data_analysis.description,
-            version: "2.0.0",
-            runtime: "client",
-            entrypoint: "data_analysis.execute",
-            input_schema: { type: "object" },
-            output_schema: { type: "object" },
-            files: []
-          }
-        }
-      }
-    }, headers: headers_with_auth(@bob), as: :json
-
-    assert_response :forbidden
-    assert_includes response.parsed_body["error"], "Only the skill author"
-  end
-
-  test "POST /api/v1/skills/:skill_id/versions returns rejected verification for invalid bundle" do
-    assert_difference("SkillVersion.count", 1) do
-      post versions_api_v1_skill_url(@data_analysis), params: {
-        version: {
-          version: "2.0.0",
-          artifact: {
-            manifest: {
-              name: @data_analysis.slug,
-              description: @data_analysis.description,
-              version: "2.0.0",
-              runtime: "client",
-              entrypoint: "data_analysis.execute",
-              input_schema: { type: "object" },
-              output_schema: { type: "object" },
-              files: [
-                {
-                  path: "skill/SKILL.md",
-                  media_type: "text/markdown"
-                }
-              ]
-            }
-          }
-        }
-      }, headers: headers_with_auth(@alice), as: :json
-    end
-
-    assert_response :created
-    body = response.parsed_body
-    assert_equal "rejected", body["version"]["status"]
-    assert_equal "rejected", body["verification"]["status"]
-    assert_equal false, body["verification"]["checks"]["bundled_files_valid"]
-  end
-
-  test "POST /api/v1/skills/:skill_id/versions rejects duplicate version numbers" do
-    assert_no_difference("SkillVersion.count") do
-      post versions_api_v1_skill_url(@data_analysis), params: {
-        version: {
-          version: "1.0.0",
-          artifact: {
-            manifest: {
-              name: @data_analysis.slug,
-              description: @data_analysis.description,
-              version: "1.0.0",
-              runtime: "client",
-              entrypoint: "data_analysis.execute",
-              input_schema: { type: "object" },
-              output_schema: { type: "object" },
-              files: []
-            }
-          }
-        }
-      }, headers: headers_with_auth(@alice), as: :json
-    end
-
-    assert_response :unprocessable_entity
-    assert_includes response.parsed_body["error"], "Version has already been taken"
-  end
-
-  test "PATCH /api/v1/skills/:id/listing_status lists a skill with a verified version" do
-    post versions_api_v1_skill_url(@data_analysis), params: {
-      version: {
-        version: "2.0.0",
-        artifact: {
-          manifest: {
-            name: @data_analysis.slug,
-            description: @data_analysis.description,
-            version: "2.0.0",
-            runtime: "client",
-            entrypoint: "data_analysis.execute",
-            input_schema: { type: "object" },
-            output_schema: { type: "object" },
-            files: []
-          }
-        }
-      }
-    }, headers: headers_with_auth(@alice), as: :json
-    assert_response :created
-
-    @data_analysis.update!(listing_status: "draft")
-
-    patch listing_status_api_v1_skill_url(@data_analysis), params: {
-      skill: {
-        listing_status: "listed"
-      }
-    }, headers: headers_with_auth(@alice), as: :json
-
-    assert_response :success
-    assert_equal "listed", response.parsed_body["listing_status"]
-  end
-
-  test "PATCH /api/v1/skills/:id/listing_status rejects non-author update" do
-    patch listing_status_api_v1_skill_url(@data_analysis), params: {
-      skill: {
-        listing_status: "suspended"
-      }
-    }, headers: headers_with_auth(@bob), as: :json
-
-    assert_response :forbidden
-    assert_includes response.parsed_body["error"], "Only the skill author"
-  end
-
-  test "PATCH /api/v1/skills/:id/listing_status rejects listing without verified version" do
-    draft_skill = Skill.create!(
-      name: "Unverified Draft",
-      description: "No verified versions yet",
-      author: @alice,
-      price: 10,
-      listing_status: "draft"
-    )
-
-    patch listing_status_api_v1_skill_url(draft_skill), params: {
-      skill: {
-        listing_status: "listed"
-      }
-    }, headers: headers_with_auth(@alice), as: :json
-
-    assert_response :unprocessable_entity
-    assert_includes response.parsed_body["error"], "verified version"
   end
 
   # ── Error shapes ───────────────────────────────────────────────

@@ -6,27 +6,32 @@ puts "Seeding Skill-Ledger..."
 alice = Account.find_or_create_by!(name: "Alice") do |a|
   a.balance = 1000.00
 end
-puts "  - Account: #{alice.name} (#{alice.balance} credits) — API Key: #{alice.api_key}"
+puts "  - Account: #{alice.name} (#{alice.balance} credits)"
+puts "    API Key: #{alice.api_key} (shown only once; save it now)" if alice.api_key
 
 bob = Account.find_or_create_by!(name: "Bob") do |a|
   a.balance = 500.00
 end
-puts "  - Account: #{bob.name} (#{bob.balance} credits) — API Key: #{bob.api_key}"
+puts "  - Account: #{bob.name} (#{bob.balance} credits)"
+puts "    API Key: #{bob.api_key} (shown only once; save it now)" if bob.api_key
 
 charlie = Account.find_or_create_by!(name: "Charlie") do |a|
   a.balance = 250.00
 end
-puts "  - Account: #{charlie.name} (#{charlie.balance} credits) — API Key: #{charlie.api_key}"
+puts "  - Account: #{charlie.name} (#{charlie.balance} credits)"
+puts "    API Key: #{charlie.api_key} (shown only once; save it now)" if charlie.api_key
 
 dana = Account.find_or_create_by!(name: "Dana") do |a|
   a.balance = 1000.00
 end
-puts "  - Account: #{dana.name} (#{dana.balance} credits) — API Key: #{dana.api_key}"
+puts "  - Account: #{dana.name} (#{dana.balance} credits)"
+puts "    API Key: #{dana.api_key} (shown only once; save it now)" if dana.api_key
 
 eve = Account.find_or_create_by!(name: "Eve") do |a|
   a.balance = 1000.00
 end
-puts "  - Account: #{eve.name} (#{eve.balance} credits) — API Key: #{eve.api_key}"
+puts "  - Account: #{eve.name} (#{eve.balance} credits)"
+puts "    API Key: #{eve.api_key} (shown only once; save it now)" if eve.api_key
 
 # ---------------------------------------------------------------------------
 # Skills

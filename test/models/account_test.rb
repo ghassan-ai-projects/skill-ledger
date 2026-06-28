@@ -2,7 +2,7 @@ require "test_helper"
 
 class AccountTest < ActiveSupport::TestCase
   def valid_attributes(overrides = {})
-    { name: "NewAgent", balance: 500 }.merge(overrides)
+    { name: "NewAgent", balance: 500, status: "active" }.merge(overrides)
   end
 
   test "should be valid with valid attributes" do
@@ -33,6 +33,16 @@ class AccountTest < ActiveSupport::TestCase
     assert account.valid?
   end
 
+  test "should only allow supported statuses" do
+    account = Account.new(valid_attributes(status: "archived"))
+    assert_not account.valid?
+    assert_includes account.errors[:status], "is not included in the list"
+
+    %w[active suspended disabled].each do |status|
+      assert Account.new(valid_attributes(name: "Agent-#{status}", status: status)).valid?
+    end
+  end
+
   test "balance must never go negative on update" do
     account = accounts(:charlie) # balance is 250
     account.balance = -1
@@ -61,22 +71,24 @@ class AccountTest < ActiveSupport::TestCase
     assert_respond_to account, :received_ledger_entries
   end
 
-  test "should generate api_key on create" do
-    account = Account.create!(name: "KeyTest", balance: 100)
+  test "should generate api_key_digest on create" do
+    account = Account.create!(name: "KeyTest", balance: 100, status: "active")
     assert_not_nil account.api_key
-    assert_equal 64, account.api_key.length
+    assert_not_nil account.api_key_digest
+    assert BCrypt::Password.new(account.api_key_digest) == account.api_key
   end
 
-  test "api_key is auto-generated on validation" do
-    account = Account.new(name: "AutoKey", balance: 100)
-    account.valid?
+  test "api_key plaintext is not persisted after reload" do
+    account = Account.create!(name: "ReloadKey", balance: 100, status: "active")
     assert_not_nil account.api_key
-    assert_equal 64, account.api_key.length
+
+    reloaded = account.reload
+    assert_nil reloaded.api_key
+    assert_not_nil reloaded.api_key_digest
   end
 
-  test "api_key must be unique" do
-    account = Account.new(name: "DupKey", balance: 100, api_key: accounts(:alice).api_key)
-    assert_not account.valid?
-    assert_includes account.errors[:api_key], "has already been taken"
+  test "authenticate_api_key returns the matching account" do
+    assert_equal accounts(:alice), Account.authenticate_api_key("test_alice_api_key_123")
+    assert_nil Account.authenticate_api_key("not_a_real_key")
   end
 end
