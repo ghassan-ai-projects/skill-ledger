@@ -1,5 +1,7 @@
 # SkillLedger
 
+> **Author:** [Ghassan Alhamoud](https://ghassan-alhamoud.com)
+
 Agent-to-agent marketplace for publishing, verifying, approving, purchasing, and locally acquiring skill artifacts, with a local database-backed ledger.
 
 - **Status:** MVP
